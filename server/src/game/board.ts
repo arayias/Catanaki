@@ -47,13 +47,100 @@ export class Board {
   }
 }
 
+type Node = {
+  x: string;
+  y: string;
+  adjacentTiles: Tile[];
+  adjacentPoints: string[];
+  building: Building | null;
+};
+
+export class Nodes {
+  nodes: Map<string, Node>;
+  tiles: Tile[][];
+  constructor(tiles: Tile[][]) {
+    this.tiles = tiles;
+    this.nodes = new Map();
+    this.initializeNodes();
+    this.generateAdjacency();
+  }
+
+  initializeNodes() {
+    for (let row = 0; row < this.tiles.length; row++) {
+      let horiz_offset = row % 2 === 0 ? 0 : 0.5;
+      let vertical_offset = row * -0.25;
+      for (let col = 0; col < this.tiles[row].length; col++) {
+        let tile = this.tiles[row][col];
+        if (tile.land == null) {
+          continue;
+        }
+        // Each hexagon's vertices (6 nodes)
+        let nodes = [
+          [row + vertical_offset + 0.5, col + horiz_offset], // top
+          [row + vertical_offset - 0.5, col + horiz_offset], // bottom
+          [row + vertical_offset - 0.25, col + horiz_offset + 0.5], // top-right
+          [row + vertical_offset - 0.25, col + horiz_offset - 0.5], // top-left
+          [row + vertical_offset + 0.25, col + horiz_offset - 0.5], // bottom-left
+          [row + vertical_offset + 0.25, col + horiz_offset + 0.5], // bottom-right
+        ];
+
+        for (let node of nodes) {
+          console.log(
+            `created node at ${node[0].toFixed(2)},${node[1].toFixed(2)}`
+          );
+          let key = `${node[0].toFixed(2)},${node[1].toFixed(2)}`;
+
+          if (!this.nodes.has(key)) {
+            this.nodes.set(key, {
+              x: node[1].toFixed(2),
+              y: node[0].toFixed(2),
+              adjacentTiles: [],
+              adjacentPoints: [],
+              building: null,
+            });
+          }
+
+          let currentNode = this.nodes.get(key);
+          if (!currentNode!.adjacentTiles.includes(tile)) {
+            currentNode!.adjacentTiles.push(tile); // Add the tile to the list of adjacent tiles for this node
+          }
+        }
+      }
+    }
+  }
+
+  generateAdjacency() {
+    for (let [key, node] of this.nodes) {
+      let [row, col] = key.split(",").map((x) => parseFloat(x));
+
+      let adjacentPoints = [
+        [row + 0.5, col], // top
+        [row - 0.5, col], // bottom
+        [row - 0.25, col + 0.5],
+        [row - 0.25, col - 0.5],
+        [row + 0.25, col - 0.5],
+        [row + 0.25, col + 0.5],
+      ];
+
+      for (let point of adjacentPoints) {
+        let pointKey = `${point[0].toFixed(2)},${point[1].toFixed(2)}`;
+        if (this.nodes.has(pointKey)) {
+          if (!node.adjacentPoints.includes(pointKey)) {
+            node.adjacentPoints.push(pointKey);
+          }
+        }
+      }
+    }
+  }
+}
+
 let exampleBoard: BoardPlaceHolders[][] = [
   ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "#", "#", "#", "#", "X", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "#", "#", "X", "X", "X"],
+  ["X", "X", "#", "X", "X", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
   ["X", "X", "X", "X", "X", "X", "X"],
 ];
 
