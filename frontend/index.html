@@ -4,9 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-    <script src="./index.js" type="module"></script>
+    <script nodefer src="./index.js" type="module"></script>
+    <style>
+      .main {
+        display: flex;
+      }
+      .entry {
+        width: 40vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+      }
+      .polygon {
+        --polygon-height: 100px;
+        height: 100px;
+        background-color: black;
+        position: absolute;
+        aspect-ratio: cos(30deg);
+        clip-path: polygon(
+          50% 0%,
+          100% 25%,
+          100% 75%,
+          50% 100%,
+          0% 75%,
+          0% 25%
+        );
+        transition: background-color 0.5s;
+      }
+      .polygon:hover {
+        background-color: red;
+      }
+    </style>
   </head>
   <body>
-    <h1>Settlers of Catan</h1>
+    <div class="main">
+      <div class="entry"></div>
+    </div>
   </body>
 </html>
