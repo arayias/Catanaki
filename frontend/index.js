@@ -1,12 +1,33 @@
 console.log("hello world");
 const sampleInput = [
   ["null", "null", "null", "null", "null", "null", "null"],
-  ["null", "Wood", "Brick", "Wood", "Brick", "null", "null"],
-  ["null", "Brick", "Wood", "Sheep", "Wood", "Rock", "null"],
-  ["Wheat", "Wheat", "Wheat", "Wheat", "Wheat", "Wheat", "null"],
-  ["null", "Stone", "Wheat", "Wheat", "Stone", "Stone", "null"],
-  ["null", "Rock", "Wheat", "Brick", "Wheat", "Wood", "null"],
   ["null", "null", "null", "null", "null", "null", "null"],
+  ["null", "null", "null", "null", "null", "null", "null"],
+  ["null", "null", "#", "#", "null", "null", "null"],
+  ["null", "null", "#", "null", "null", "null", "null"],
+  ["null", "null", "null", "null", "null", "null", "null"],
+  ["null", "null", "null", "null", "null", "null", "null"],
+];
+
+const nodeCreationData = [
+  { y: 2.75, x: 2.5 },
+  { y: 1.75, x: 2.5 },
+  { y: 2.0, x: 3.0 },
+  { y: 2.0, x: 2.0 },
+  { y: 2.5, x: 2.0 },
+  { y: 2.5, x: 3.0 },
+  { y: 2.75, x: 3.5 },
+  { y: 1.75, x: 3.5 },
+  { y: 2.0, x: 4.0 },
+  { y: 2.0, x: 3.0 },
+  { y: 2.5, x: 3.0 },
+  { y: 2.5, x: 4.0 },
+  { y: 3.5, x: 2.0 },
+  { y: 2.5, x: 2.0 },
+  { y: 2.75, x: 2.5 },
+  { y: 2.75, x: 1.5 },
+  { y: 3.25, x: 1.5 },
+  { y: 3.25, x: 2.5 },
 ];
 
 const entry = document.querySelector(".entry");
@@ -33,7 +54,8 @@ function positionHexagons() {
     polygonHeight = maximumHeight;
   }
   let size = polygonHeight / 2;
-  let margin = 1;
+  let polygonWidth = size * Math.sqrt(3);
+  let margin = 0;
   let vert = (3 / 2) * size;
   let horiz = Math.sqrt(3) * size;
 
@@ -59,6 +81,27 @@ function positionHexagons() {
         entry.appendChild(poly);
       }
     }
+  }
+  renderNodes(polygonHeight, polygonWidth);
+}
+
+function renderNodes(height, width) {
+  let yOff = (1 / 2) * height - (1 / 16) * height;
+  for (let i = 0; i < nodeCreationData.length; i++) {
+    const node = document.createElement("div");
+    node.classList.add("node");
+    node.style.height = `${height / 8}px`;
+    node.style.aspectRatio = "1/1";
+    node.style.borderRadius = "50%";
+    node.style.backgroundColor = "lightgray";
+    node.style.opacity = "0.6";
+    node.style.position = "absolute";
+    node.style.transform = `translate(${nodeCreationData[i].x * width}px, ${
+      nodeCreationData[i].y * height + yOff
+    }px)`;
+    node.dataset.row = nodeCreationData[i].y;
+    node.dataset.col = nodeCreationData[i].x;
+    entry.appendChild(node);
   }
 }
 
