@@ -1,33 +1,85 @@
 console.log("hello world");
 const sampleInput = [
   ["null", "null", "null", "null", "null", "null", "null"],
-  ["null", "null", "null", "null", "null", "null", "null"],
-  ["null", "null", "null", "null", "null", "null", "null"],
-  ["null", "null", "#", "#", "null", "null", "null"],
-  ["null", "null", "#", "null", "null", "null", "null"],
-  ["null", "null", "null", "null", "null", "null", "null"],
+  ["null", "null", "#", "#", "#", "null", "null"],
+  ["null", "#", "#", "#", "#", "#", "null"],
+  ["null", "#", "#", "#", "#", "#", "null"],
+  ["null", "#", "#", "#", "#", "#", "null"],
+  ["null", "null", "#", "#", "#", "null", "null"],
   ["null", "null", "null", "null", "null", "null", "null"],
 ];
+const game = await fetch("http://localhost:3000/game", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+let gameJson = await game.json();
+
+var socket = io.connect("ws://localhost:3000");
+socket.emit("join game", `${gameJson.gameId}`);
 
 const nodeCreationData = [
-  { y: 2.75, x: 2.5 },
+  { y: 1.25, x: 2.5 },
+  { y: 0.25, x: 2.5 },
+  { y: 0.5, x: 3.0 },
+  { y: 0.5, x: 2.0 },
+  { y: 1.0, x: 2.0 },
+  { y: 1.0, x: 3.0 },
+  { y: 1.25, x: 3.5 },
+  { y: 0.25, x: 3.5 },
+  { y: 0.5, x: 4.0 },
+  { y: 1.0, x: 4.0 },
+  { y: 1.25, x: 4.5 },
+  { y: 0.25, x: 4.5 },
+  { y: 0.5, x: 5.0 },
+  { y: 1.0, x: 5.0 },
+  { y: 2.0, x: 1.0 },
+  { y: 1.0, x: 1.0 },
+  { y: 1.25, x: 1.5 },
+  { y: 1.25, x: 0.5 },
+  { y: 1.75, x: 0.5 },
+  { y: 1.75, x: 1.5 },
+  { y: 2.0, x: 2.0 },
   { y: 1.75, x: 2.5 },
   { y: 2.0, x: 3.0 },
-  { y: 2.0, x: 2.0 },
-  { y: 2.5, x: 2.0 },
-  { y: 2.5, x: 3.0 },
-  { y: 2.75, x: 3.5 },
   { y: 1.75, x: 3.5 },
   { y: 2.0, x: 4.0 },
-  { y: 2.0, x: 3.0 },
-  { y: 2.5, x: 3.0 },
-  { y: 2.5, x: 4.0 },
-  { y: 3.5, x: 2.0 },
+  { y: 1.75, x: 4.5 },
+  { y: 2.0, x: 5.0 },
+  { y: 1.25, x: 5.5 },
+  { y: 1.75, x: 5.5 },
+  { y: 2.75, x: 1.5 },
+  { y: 2.5, x: 1.0 },
   { y: 2.5, x: 2.0 },
   { y: 2.75, x: 2.5 },
-  { y: 2.75, x: 1.5 },
+  { y: 2.5, x: 3.0 },
+  { y: 2.75, x: 3.5 },
+  { y: 2.5, x: 4.0 },
+  { y: 2.75, x: 4.5 },
+  { y: 2.5, x: 5.0 },
+  { y: 2.75, x: 5.5 },
+  { y: 2.0, x: 6.0 },
+  { y: 2.5, x: 6.0 },
+  { y: 3.5, x: 1.0 },
+  { y: 2.75, x: 0.5 },
+  { y: 3.25, x: 0.5 },
   { y: 3.25, x: 1.5 },
+  { y: 3.5, x: 2.0 },
   { y: 3.25, x: 2.5 },
+  { y: 3.5, x: 3.0 },
+  { y: 3.25, x: 3.5 },
+  { y: 3.5, x: 4.0 },
+  { y: 3.25, x: 4.5 },
+  { y: 3.5, x: 5.0 },
+  { y: 3.25, x: 5.5 },
+  { y: 4.25, x: 2.5 },
+  { y: 4.0, x: 2.0 },
+  { y: 4.0, x: 3.0 },
+  { y: 4.25, x: 3.5 },
+  { y: 4.0, x: 4.0 },
+  { y: 4.25, x: 4.5 },
+  { y: 4.0, x: 5.0 },
 ];
 
 const entry = document.querySelector(".entry");
@@ -101,6 +153,9 @@ function renderNodes(height, width) {
     }px)`;
     node.dataset.row = nodeCreationData[i].y;
     node.dataset.col = nodeCreationData[i].x;
+    node.addEventListener("click", () => {
+      console.log(`(${nodeCreationData[i].y}, ${nodeCreationData[i].x})`);
+    });
     entry.appendChild(node);
   }
 }
