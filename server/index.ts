@@ -3,7 +3,6 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import type { Application } from "express";
 import { logger } from "./src/middleware/logger";
-import { Board, Player } from "./src/game/board";
 import { Game } from "./src/game/game";
 import { Server } from "socket.io";
 import http from "http";
@@ -28,37 +27,14 @@ app.use(bodyParser.json());
 app.use(cors({ origin: "http://localhost:5500" })); // Apply CORS to the Express app
 app.use(logger);
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
-
-app.get("/game_board", (req, res) => {
-  let gameBoard = new Board();
-  res.send(gameBoard.serialize());
-});
-
-app.get("/nodes", (req, res) => {
-  let board = new Board();
-  let nodes = new Nodes(board.board);
-  let arr = Array.from(nodes.nodes.entries());
-  let max = 0;
-  for (let [key, node] of arr) {
-    if (node.adjacentTiles.length > max) {
-      max = node.adjacentTiles.length;
-    }
-  }
-  console.log(`max adjacent tiles: ${max}`);
-  let stringified = JSON.stringify(arr, null, 2);
-  res.send(stringified);
-});
-
-app.get("/game", (req, res) => {
+app.post("/game", (req, res) => {
   let game = new Game();
-  let player1 = new Player("andre", "red");
-  player1.addResource("Rock", 10);
-  player1.addResource("Wheat", 10);
-  player1.addResource("Sheep", 10);
-  console.log(game);
+  openGames.push(game);
+  res.send(
+    JSON.stringify({
+      gameId: game.id,
+    })
+  );
 });
 
 app.get("/game/:gameId", (req, res) => {
@@ -68,16 +44,6 @@ app.get("/game/:gameId", (req, res) => {
   } else {
     res.status(404).send("Game not found");
   }
-});
-
-app.post("/game", (req, res) => {
-  let game = new Game();
-  openGames.push(game);
-  res.send(
-    JSON.stringify({
-      gameId: game.id,
-    })
-  );
 });
 
 io.on("connection", (socket) => {

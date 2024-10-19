@@ -16,6 +16,12 @@ export class Game {
     this.id = Math.random().toString(36).substring(7);
   }
 
+  createPlayer(name: string, color: string) {
+    const player = new Player(name, color);
+    this.addPlayer(player);
+    return player;
+  }
+
   addPlayer(player: Player) {
     this.players.push(player);
   }
