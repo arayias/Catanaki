@@ -7,6 +7,8 @@ export class Game {
   board: Board;
   turn: number;
   currentPlayerIndex: number;
+  initialPlacement: boolean;
+  initialPlacementTurn: number;
 
   constructor() {
     this.players = [];
@@ -14,6 +16,14 @@ export class Game {
     this.turn = 0;
     this.currentPlayerIndex = 0;
     this.id = Math.random().toString(36).substring(7);
+    this.initialPlacement = false;
+    this.initialPlacementTurn = 0;
+  }
+
+  startInitialPlacement() {
+    this.initialPlacement = true;
+    this.initialPlacementTurn = 1;
+    this.distributeResourcesForInitialPlacement();
   }
 
   createPlayer(name: string, color: string) {
@@ -51,6 +61,11 @@ export class Game {
         break;
       case "rollDice":
         res = this.handleRollDiceCommand(command as RollDiceCommand);
+        break;
+      case "initialPlacement":
+        res = this.handleInitialPlacementCommand(
+          command as InitialPlacementCommand
+        );
         break;
       default:
         console.log(`Unknown command type: ${command.type}`);
@@ -93,12 +108,27 @@ export class Game {
       console.log(`It's not ${sender}'s turn.`);
       return false;
     }
+    for (let building of player.buildings) {
+      if (
+        building.buildingType === "Settlement" &&
+        this.isRoadAdjacentToBuilding(building.location, edge)
+      ) {
+        break;
+      }
+      if (building.buildingType === "City") {
+        break;
+      }
+      console.log(
+        `Cannot build road at ${edge} because it is not adjacent to a settlement`
+      );
+      return false;
+    }
 
     const roadEdge = this.board.edges.get(edge);
     if (roadEdge && !roadEdge.road) {
       if (player.canAffordBuilding("Road")) {
         console.log(`Building road at ${edge}`);
-        const road = player.buildRoad(edge);
+        const road = player.buildRoad(edge, player.name);
         if (road) {
           roadEdge.road = road;
           console.log(`${player.name} built a road at ${edge}`);
@@ -131,6 +161,57 @@ export class Game {
     return true;
   }
 
+  handleInitialPlacementCommand(command: InitialPlacementCommand) {
+    const { sender, settlementLocation, roadLocation } = command;
+    const player = this.getCurrentPlayer();
+    if (player.name !== sender) {
+      console.log(`It's not ${sender}'s turn.`);
+      return false;
+    }
+
+    if (this.initialPlacementTurn === 1) {
+      if (player.canAffordBuilding("Settlement")) {
+        const node = this.board.nodes.get(settlementLocation);
+        if (node && !node.building) {
+          const b = player.buildBuilding(
+            "Settlement",
+            settlementLocation,
+            player.name
+          );
+          if (b) {
+            node.building = b;
+            console.log(
+              `${player.name} built a Settlement at ${settlementLocation}`
+            );
+          }
+        }
+      } else {
+        console.log(`${player.name} cannot afford to build a Settlement`);
+        return false;
+      }
+      this.initialPlacementTurn = 2;
+    } else if (this.initialPlacementTurn === 2) {
+      if (player.canAffordBuilding("Road")) {
+        const edge = this.board.edges.get(roadLocation);
+        if (edge && !edge.road) {
+          const road = player.buildRoad(roadLocation, player.name);
+          if (road) {
+            edge.road = road;
+            console.log(`${player.name} built a Road at ${roadLocation}`);
+          }
+        }
+      } else {
+        console.log(`${player.name} cannot afford to build a Road`);
+        return false;
+      }
+      this.nextTurn();
+      if (this.currentPlayerIndex === 0) {
+        this.initialPlacement = false;
+      }
+    }
+    return true;
+  }
+
   distributeResources(roll: number) {
     for (let player of this.players) {
       for (let building of player.buildings) {
@@ -157,13 +238,39 @@ export class Game {
     }
   }
 
-  beginInitialPlacement() {
+  distributeResourcesForInitialPlacement() {
     for (let player of this.players) {
-      player.addResource("Brick", 1);
-      player.addResource("Wood", 1);
+      player.addResource("Brick", 2);
+      player.addResource("Wood", 2);
       player.addResource("Wheat", 1);
       player.addResource("Sheep", 1);
     }
+  }
+
+  isRoadAdjacentToBuilding(buildingLocation: string, roadLocation: string) {
+    const currentPlayer = this.getCurrentPlayer();
+    const building = this.board.nodes.get(buildingLocation);
+
+    const [node1, node2] = roadLocation.split("-");
+    if (
+      !building ||
+      !building.building ||
+      building.building.owner !== currentPlayer.name
+    ) {
+      return false;
+    }
+
+    const road = this.board.edges.get(roadLocation);
+    if (!road || !road.road) {
+      return false;
+    }
+
+    for (let edge of building.adjacentNodes) {
+      if (edge === node1 || edge === node2) {
+        return true;
+      }
+    }
+    return false;
   }
 
   serializeGameState() {
@@ -203,4 +310,10 @@ type BuildRoadCommand = Command & {
 
 type RollDiceCommand = Command & {
   type: "rollDice";
+};
+
+type InitialPlacementCommand = Command & {
+  type: "initialPlacement";
+  settlementLocation: string;
+  roadLocation: string;
 };

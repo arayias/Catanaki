@@ -63,33 +63,27 @@ io.on("connection", (socket) => {
       if (!game) {
         return;
       }
-      game.beginInitialPlacement();
+      game.distributeResourcesForInitialPlacement();
       io.to(gameId).emit("game update", game.serializeGameState());
-    });
-
-    socket.on("game command", (command) => {
-      console.log(
-        `game command: ${JSON.stringify(command)} in game: ${gameId}`
-      );
-      if (!game) {
-        console.error("gameId is undefined");
-        return;
-      }
-      let parsedCommand = JSON.parse(command);
-      io.to(gameId).emit("game command", command);
-      let didCommandSucceed = game.handleCommand(parsedCommand);
-      if (didCommandSucceed) {
-        io.to(gameId).emit("game update", game);
-      }
+      socket.on("game command", (command) => {
+        console.log(
+          `game command: ${JSON.stringify(command)} in game: ${gameId}`
+        );
+        if (!game) {
+          console.error("gameId is undefined");
+          return;
+        }
+        let parsedCommand = JSON.parse(command);
+        let didCommandSucceed = game.handleCommand(parsedCommand);
+        if (didCommandSucceed) {
+          io.to(gameId).emit("game update", game);
+        }
+      });
     });
 
     socket.on("leave game", () => {
       socket.leave(gameId);
       console.log(`User ${socket.id} left game: ${gameId}`);
-    });
-
-    socket.on("disconnect", () => {
-      console.log("user disconnected");
     });
   });
 });

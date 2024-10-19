@@ -178,13 +178,19 @@ class Building {
   buildingType: BuildingType;
   location: string;
   upgradeable: boolean;
+  owner: Player["name"];
   cost: { [key in Material]?: number };
 
-  constructor(buildingType: BuildingType, location: string) {
+  constructor(
+    buildingType: BuildingType,
+    location: string,
+    owner: Player["name"]
+  ) {
     this.buildingType = buildingType;
     this.location = location;
     this.upgradeable = buildingType === "Settlement";
     this.cost = costDict[buildingType];
+    this.owner = owner;
   }
 }
 
@@ -229,9 +235,13 @@ export class Player {
     return true;
   }
 
-  buildBuilding(buildingType: BuildingType, location: string) {
+  buildBuilding(
+    buildingType: BuildingType,
+    location: string,
+    owner: Player["name"]
+  ) {
     if (this.canAffordBuilding(buildingType)) {
-      let building = new Building(buildingType, location);
+      let building = new Building(buildingType, location, owner);
       this.buildings.push(building);
       for (let material in costDict[buildingType]) {
         this.removeResource(
@@ -244,8 +254,8 @@ export class Player {
     return null;
   }
 
-  buildRoad(edge: string) {
-    return this.buildBuilding("Road", edge);
+  buildRoad(edge: string, owner: Player["name"]) {
+    return this.buildBuilding("Road", edge, owner);
   }
 }
 
