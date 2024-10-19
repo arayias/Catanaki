@@ -51,37 +51,49 @@ io.on("connection", (socket) => {
 
   socket.on("join game", (gameId) => {
     socket.join(gameId);
-    console.log(`User joined game: ${gameId}`);
-  });
+    console.log(`User ${socket.id} joined game: ${gameId}`);
+    let game = getGameById(gameId);
+    if (!game) {
+      return;
+    }
+    game.createPlayer("alice", "red");
+    console.log(`User ${socket.id} joined game: ${gameId}`);
 
-  socket.on("leave game", (gameId) => {
-    socket.leave(gameId);
-    console.log(`User left game: ${gameId}`);
-  });
+    socket.on("start game", () => {
+      if (!game) {
+        return;
+      }
+      game.beginInitialPlacement();
+      io.to(gameId).emit("game update", game.serializeGameState());
+    });
 
-  socket.on("chat message", (msg, gameId) => {
-    console.log(`message: ${msg} in game: ${gameId}`);
-    io.to(gameId).emit("chat message", msg);
-  });
-
-  socket.on("game command", (command, gameId) => {
-    console.log(`game command: ${JSON.stringify(command)} in game: ${gameId}`);
-    io.to(gameId).emit("game command", command);
-
-    if (command.type === "build") {
-      let game = getGameById(gameId);
-      if (game) {
-        game.handleBuildCommand(command);
+    socket.on("game command", (command) => {
+      console.log(
+        `game command: ${JSON.stringify(command)} in game: ${gameId}`
+      );
+      if (!game) {
+        console.error("gameId is undefined");
+        return;
+      }
+      let parsedCommand = JSON.parse(command);
+      io.to(gameId).emit("game command", command);
+      let didCommandSucceed = game.handleCommand(parsedCommand);
+      if (didCommandSucceed) {
         io.to(gameId).emit("game update", game);
       }
-    }
-  });
+    });
 
-  socket.on("disconnect", () => {
-    console.log("user disconnected");
+    socket.on("leave game", () => {
+      socket.leave(gameId);
+      console.log(`User ${socket.id} left game: ${gameId}`);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("user disconnected");
+    });
   });
 });
 
 server.listen(port, () => {
-  console.log(`Server and Socket.IO running at http://localhost:${port}`);
+  console.log(`Server and socket running at http://localhost:${port}`);
 });

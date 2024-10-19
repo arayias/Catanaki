@@ -41,19 +41,21 @@ export class Game {
 
   handleCommand(command: Command) {
     console.log(`Game received command: ${JSON.stringify(command)}`);
+    let res = false;
     switch (command.type) {
       case "build":
-        this.handleBuildCommand(command as BuildCommand);
+        res = this.handleBuildCommand(command as BuildCommand);
         break;
       case "buildRoad":
-        this.handleBuildRoadCommand(command as BuildRoadCommand);
+        res = this.handleBuildRoadCommand(command as BuildRoadCommand);
         break;
       case "rollDice":
-        this.handleRollDiceCommand(command as RollDiceCommand);
+        res = this.handleRollDiceCommand(command as RollDiceCommand);
         break;
       default:
         console.log(`Unknown command type: ${command.type}`);
     }
+    return res;
   }
 
   handleBuildCommand(command: BuildCommand) {
@@ -61,7 +63,7 @@ export class Game {
     const player = this.getCurrentPlayer();
     if (player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
-      return;
+      return false;
     }
 
     const node = this.board.nodes.get(location);
@@ -75,10 +77,13 @@ export class Game {
         }
       } else {
         console.log(`${player.name} cannot afford to build a ${building}`);
+        return false;
       }
     } else {
       console.log(`Invalid build location: ${location}`);
+      return false;
     }
+    return true;
   }
 
   handleBuildRoadCommand(command: BuildRoadCommand) {
@@ -86,7 +91,7 @@ export class Game {
     const player = this.getCurrentPlayer();
     if (player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
-      return;
+      return false;
     }
 
     const roadEdge = this.board.edges.get(edge);
@@ -100,10 +105,13 @@ export class Game {
         }
       } else {
         console.log(`${player.name} cannot afford to build a road`);
+        return false;
       }
     } else {
       console.log(`Invalid road location: ${edge}`);
+      return false;
     }
+    return true;
   }
 
   handleRollDiceCommand(command: RollDiceCommand) {
@@ -111,7 +119,7 @@ export class Game {
     const player = this.getCurrentPlayer();
     if (player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
-      return;
+      return false;
     }
 
     const roll =
@@ -120,6 +128,7 @@ export class Game {
 
     this.distributeResources(roll);
     this.nextTurn();
+    return true;
   }
 
   distributeResources(roll: number) {
@@ -145,6 +154,15 @@ export class Game {
           }
         }
       }
+    }
+  }
+
+  beginInitialPlacement() {
+    for (let player of this.players) {
+      player.addResource("Brick", 1);
+      player.addResource("Wood", 1);
+      player.addResource("Wheat", 1);
+      player.addResource("Sheep", 1);
     }
   }
 
