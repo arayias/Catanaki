@@ -15,9 +15,25 @@ const game = await fetch("http://localhost:3000/game", {
   },
 });
 let gameJson = await game.json();
+// gameJson.gameId = "ijmmcq";
 
 var socket = io.connect("ws://localhost:3000");
 socket.emit("join game", `${gameJson.gameId}`);
+socket.emit("start game", `${gameJson.gameId}`);
+
+socket.on("game update", (data) => {
+  for (let i = 0; i < data.players.length; i++) {
+    for (let j = 0; j < data.players[i].buildings.length; j++) {
+      let location = data.players[i].buildings[j].location;
+      location = location.split(",");
+      console.log(location);
+      let node = document.querySelector(
+        `[data-row="${location[0]}"][data-col="${location[1]}"]`
+      );
+      node.style.backgroundColor = data.players[i].color;
+    }
+  }
+});
 
 const nodeCreationData = [
   { y: 1.25, x: 2.5 },
@@ -151,10 +167,21 @@ function renderNodes(height, width) {
     node.style.transform = `translate(${nodeCreationData[i].x * width}px, ${
       nodeCreationData[i].y * height + yOff
     }px)`;
-    node.dataset.row = nodeCreationData[i].y;
-    node.dataset.col = nodeCreationData[i].x;
+    node.dataset.row = nodeCreationData[i].y.toFixed(2);
+    node.dataset.col = nodeCreationData[i].x.toFixed(2);
     node.addEventListener("click", () => {
       console.log(`(${nodeCreationData[i].y}, ${nodeCreationData[i].x})`);
+      socket.emit(
+        "game command",
+        JSON.stringify({
+          type: "build",
+          sender: "alice",
+          location: `${nodeCreationData[i].y.toFixed(2)},${nodeCreationData[
+            i
+          ].x.toFixed(2)}`,
+          building: "Settlement",
+        })
+      );
     });
     entry.appendChild(node);
   }
