@@ -37,10 +37,10 @@ app.post("/game", (req, res) => {
   );
 });
 
-app.get("/board/:gameId", (req, res) => {
+app.get("/game/:gameId", (req, res) => {
   let game = getGameById(req.params.gameId);
   if (game) {
-    res.send(game.board.serialize());
+    res.send(game.serializeGameState());
   } else {
     res.status(404).send("Game not found");
   }

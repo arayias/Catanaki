@@ -158,7 +158,7 @@ export class Board {
     return [node1, node2].sort().join("-");
   }
 
-  serialize(): string[][] {
+  serializeBoard(): string[][] {
     let serializedBoard: string[][] = [];
     for (let row = 0; row < this.board.length; row++) {
       serializedBoard[row] = [];
@@ -170,6 +170,22 @@ export class Board {
       }
     }
     return serializedBoard;
+  }
+
+  serializeNodes() {
+    let serializedNodes: { [key: string]: Building | null } = {};
+    for (let [key, node] of this.nodes) {
+      serializedNodes[key] = node.building;
+    }
+    return serializedNodes;
+  }
+
+  serializeEdges() {
+    let serializedEdges: { [key: string]: Building | null } = {};
+    for (let [key, edge] of this.edges) {
+      serializedEdges[key] = edge.road;
+    }
+    return serializedEdges;
   }
 }
 

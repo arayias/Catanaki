@@ -42,9 +42,9 @@ export class Game {
       (this.currentPlayerIndex + 1) % this.players.length;
   }
 
-  getCurrentPlayer(): Player {
+  getCurrentPlayer(): Player | undefined {
     if (this.players.length === 0) {
-      throw new Error("No players in the game");
+      return undefined;
     }
     return this.players[this.currentPlayerIndex];
   }
@@ -104,7 +104,7 @@ export class Game {
   handleBuildRoadCommand(command: BuildRoadCommand) {
     const { sender, edge } = command;
     const player = this.getCurrentPlayer();
-    if (player.name !== sender) {
+    if (!player || player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
       return false;
     }
@@ -147,7 +147,7 @@ export class Game {
   handleRollDiceCommand(command: RollDiceCommand) {
     const { sender } = command;
     const player = this.getCurrentPlayer();
-    if (player.name !== sender) {
+    if (!player || player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
       return false;
     }
@@ -164,7 +164,7 @@ export class Game {
   handleInitialPlacementCommand(command: InitialPlacementCommand) {
     const { sender, settlementLocation, roadLocation } = command;
     const player = this.getCurrentPlayer();
-    if (player.name !== sender) {
+    if (!player || player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
       return false;
     }
@@ -249,6 +249,9 @@ export class Game {
 
   isRoadAdjacentToBuilding(buildingLocation: string, roadLocation: string) {
     const currentPlayer = this.getCurrentPlayer();
+    if (!currentPlayer) {
+      return false;
+    }
     const building = this.board.nodes.get(buildingLocation);
 
     const [node1, node2] = roadLocation.split("-");
@@ -277,8 +280,9 @@ export class Game {
     return {
       id: this.id,
       turn: this.turn,
-      currentPlayer: this.getCurrentPlayer().name,
-      board: this.board.serialize(),
+      currentPlayer: this.getCurrentPlayer()?.name,
+      board: this.board.serializeBoard(),
+      nodes: this.board.serializeNodes(),
       players: this.players.map((player) => ({
         name: player.name,
         color: player.color,
