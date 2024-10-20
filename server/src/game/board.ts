@@ -1,7 +1,6 @@
 const materials = [
   "Wood",
   "Stone",
-  "Rock",
   "Wheat",
   "Sheep",
   "Brick",
@@ -206,7 +205,6 @@ export class Player {
     this.resources = {
       Wood: 0,
       Stone: 0,
-      Rock: 0,
       Wheat: 0,
       Sheep: 0,
       Brick: 0,
@@ -267,7 +265,7 @@ const costDict: { [key in BuildingType]: { [key in Material]?: number } } = {
     Brick: 1,
   },
   City: {
-    Rock: 3,
+    Stone: 3,
     Wheat: 2,
   },
   Road: {

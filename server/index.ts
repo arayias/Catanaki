@@ -9,10 +9,10 @@ import http from "http";
 
 const app: Application = express();
 const server = http.createServer(app);
-const port = 3000;
+const port = 3001;
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5500",
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   },
 });
@@ -24,7 +24,7 @@ function getGameById(gameId: string): Game | undefined {
 }
 
 app.use(bodyParser.json());
-app.use(cors({ origin: "http://localhost:5500" })); // Apply CORS to the Express app
+app.use(cors({ origin: "http://localhost:5173" })); // Apply CORS to the Express app
 app.use(logger);
 
 app.post("/game", (req, res) => {
@@ -32,12 +32,12 @@ app.post("/game", (req, res) => {
   openGames.push(game);
   res.send(
     JSON.stringify({
-      gameId: game.id,
+      id: game.id,
     })
   );
 });
 
-app.get("/game/:gameId", (req, res) => {
+app.get("/board/:gameId", (req, res) => {
   let game = getGameById(req.params.gameId);
   if (game) {
     res.send(game.board.serialize());
