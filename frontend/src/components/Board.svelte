@@ -1,9 +1,11 @@
 <script lang="ts">
+	import type { Socket } from 'socket.io-client';
+
 	let data = $props();
 	let gameId = data.id;
-	let board = data.game.board;
-	let nodeData = data.game.nodes;
-	let socket = data.socket;
+	let board = $derived(data.game.board);
+	let nodeData = $derived(data.game.nodes);
+	let socket: Socket = data.socket;
 
 	let brickSvg = '../../brick.svg';
 	let stoneSvg = '../../stone.svg';
@@ -169,10 +171,22 @@
 		<button
 			class="node absolute aspect-square rounded-full bg-slate-300 opacity-70"
 			data-idx={node.idx}
-			style="top: {node.y}px; left: {node.x}px; background-color: {node.building === 'null'
+			style="top: {node.y}px; left: {node.x}px; background-color: {node.building === null
 				? 'blue'
-				: 'lightblue'}; height: {node.h}px;"
-			onclick={() => console.log(`(${node.idx})`)}
+				: 'red'}; height: {node.h}px;"
+			onclick={() => {
+				console.log(`(${node.idx})`);
+				console.log(socket);
+				socket.emit(
+					'game command',
+					JSON.stringify({
+						type: 'build',
+						building: 'Settlement',
+						location: node.idx,
+						sender: data.uniqueName
+					})
+				);
+			}}
 			onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
 			aria-label={`Node at row ${node.y}, column ${node.x}`}
 		>
