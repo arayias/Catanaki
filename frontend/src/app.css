@@ -3,10 +3,9 @@
 @import 'tailwindcss/utilities';
 
 .entry {
-	width: 40vw;
+	width: 80vw;
 	height: 100vh;
 	display: flex;
-	justify-content: center;
 }
 .polygon {
 	height: 100px;

@@ -1,9 +1,10 @@
 <script lang="ts">
 	let data = $props();
 	let gameId = data.id;
-	let board = data.board;
+	let board = data.game.board;
+	let nodeData = data.game.nodes;
+	let socket = data.socket;
 
-	console.log(board);
 	let brickSvg = '../../brick.svg';
 	let stoneSvg = '../../stone.svg';
 	let wheatSvg = '../../wheat.svg';
@@ -20,8 +21,15 @@
 		roll: string;
 	}[] = $state([]);
 
+	let nodes: {
+		x: number;
+		y: number;
+		building: string;
+		idx: string;
+		h: number;
+	}[] = $state([]);
+
 	function getColorFromType(type: string) {
-		console.log('getColorFromType', type);
 		switch (type) {
 			case 'Stone':
 				return '#a3a9a8';
@@ -39,7 +47,6 @@
 	}
 
 	function getSvgFromType(type: string) {
-		console.log('getSvgFromType', type);
 		switch (type) {
 			case 'Stone':
 				return stoneSvg;
@@ -57,7 +64,6 @@
 	}
 
 	function positionHexagons() {
-		console.log('positionHexagons');
 		const entry = document.querySelector('.entry');
 		if (!entry) return;
 		const containerWidth = entry.getBoundingClientRect().width * Math.sqrt(3);
@@ -73,7 +79,7 @@
 			polygonHeight = maximumHeight;
 		}
 		let size = polygonHeight / 2;
-		// let polygonWidth = size * Math.sqrt(3);
+		let polygonWidth = size * Math.sqrt(3);
 		let margin = 0;
 		let vert = (3 / 2) * size;
 		let horiz = Math.sqrt(3) * size;
@@ -98,7 +104,28 @@
 			}
 		}
 		hexagons = hexagonData;
+		nodes = positionNodes(polygonHeight, polygonWidth);
 	}
+
+	function positionNodes(height: number, width: number) {
+		let nodes = [];
+		let pixelSize = 12;
+		let offset = pixelSize * 4;
+		let yOff = (1 / 2) * height - (1 / offset) * height;
+		for (let key in nodeData) {
+			const building = nodeData[key];
+			let [y, x] = key.split(',').map(Number);
+			nodes.push({
+				x: x * width + 0.45 * width,
+				y: y * height + yOff,
+				idx: key,
+				building: building,
+				h: height / pixelSize
+			});
+		}
+		return nodes;
+	}
+
 	$effect(() => {
 		positionHexagons();
 		window.addEventListener('resize', positionHexagons);
@@ -106,7 +133,7 @@
 	});
 </script>
 
-<div id="board" class="entry">
+<div id="board">
 	{#each hexagons as hex}
 		<button
 			class="polygon absolute"
@@ -128,11 +155,36 @@
 						style="height: {hex.height / 4}px "
 					/>
 				</div>
-				<div>
-					<span class="text-xs font-bold text-purple-100">
+				<div class="aspect-square rounded-full bg-slate-200 p-2">
+					<span
+						class={`text-xl font-bold ${hex.roll === '6' || hex.roll === '8' ? 'text-red-600' : 'text-blue-950'}`}
+					>
 						{hex.roll}
 					</span>
 				</div>
+			</div>
+		</button>
+	{/each}
+	{#each nodes as node}
+		<button
+			class="node absolute aspect-square rounded-full bg-slate-300 opacity-70"
+			data-idx={node.idx}
+			style="top: {node.y}px; left: {node.x}px; background-color: {node.building === 'null'
+				? 'blue'
+				: 'lightblue'}; height: {node.h}px;"
+			onclick={() => console.log(`(${node.idx})`)}
+			onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
+			aria-label={`Node at row ${node.y}, column ${node.x}`}
+		>
+			<div class="flex flex-col items-center justify-center">
+				<!-- <div>
+					<img
+						class="aspect-square"
+						src={node.building === 'null' ? '' : '../../city.svg'}
+						alt={node.building}
+						style="height: 20px"
+					/>
+				</div> -->
 			</div>
 		</button>
 	{/each}
@@ -142,5 +194,8 @@
 	.polygon {
 		position: absolute;
 		clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+	}
+	.node {
+		position: absolute;
 	}
 </style>
