@@ -135,12 +135,13 @@
 	});
 </script>
 
-<div id="board">
+<div id="board" class="entry">
 	{#each hexagons as hex}
 		<button
 			class="polygon absolute"
 			data-row={hex.row}
 			data-col={hex.col}
+			data-roll={hex.roll}
 			style="height: {hex.height}px; top: {hex.y}px; left: {hex.x}px; background-color: {getColorFromType(
 				hex.type
 			)};"

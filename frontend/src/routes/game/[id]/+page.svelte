@@ -16,7 +16,6 @@
 	};
 
 	let socket: Socket | null = $state(null);
-
 	let game: any = $state(new Promise(() => {}));
 
 	onMount(() => {
@@ -28,7 +27,6 @@
 			uniqueName = name;
 		}
 		socket = io('http://localhost:3001');
-
 		if (socket) {
 			socket.on('connect', () => {
 				connected = true;
@@ -43,8 +41,22 @@
 			socket.on('game update', (data) => {
 				console.log('game update', data);
 				game = data;
+				game.roll = data.roll;
 			});
 		}
+	});
+
+	$effect(() => {
+		let el = document.querySelectorAll(`[data-roll="${game.roll ?? 0}"]`);
+		for (let i = 0; i < el.length; i++) {
+			el[i].classList.add('animate-pulse');
+		}
+
+		return () => {
+			for (let i = 0; i < el.length; i++) {
+				el[i].classList.remove('animate-pulse');
+			}
+		};
 	});
 </script>
 
@@ -52,22 +64,86 @@
 	{#await game}
 		<p>Loading...</p>
 	{:then game}
-		<div class="ml-auto flex justify-center text-3xl font-bold text-white">
-			{#if connected}
-				<div class="h-4 w-4 animate-pulse rounded-full bg-green-400"></div>
-			{:else}
-				<div class="h-4 w-4 animate-pulse rounded-full bg-red-400"></div>
+		<Board {game} {socket} {uniqueName} />
+		<div class="flex flex-col items-center justify-center bg-slate-200 p-3">
+			<div>
+				<!-- {connectedPlayers} -->
+				{#if connected}
+					<span class="animate-pulse">🟢</span>
+				{:else}
+					<span class="animate-pulse">🔴</span>
+				{/if}
+			</div>
+			<p>{connected ? 'Connected' : 'Disconnected'}</p>
+			{#if !game.hasStarted}
+				<button
+					class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
+					onclick={() => {
+						socket!.emit('start game');
+					}}
+				>
+					Start game
+				</button>
+			{/if}
+			{#if game.hasStarted}
+				{#if game.currentPlayer === uniqueName}
+					<button
+						class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
+						onclick={() => {
+							socket!.emit(
+								'game command',
+								JSON.stringify({ type: 'rollDice', sender: uniqueName })
+							);
+						}}
+					>
+						End turn
+					</button>
+				{/if}
+				{#each game.players as player}
+					<div>
+						{player.name}
+						{#if player.name === game.currentPlayer}
+							<span>🎲</span>
+						{/if}
+						<div class="text-sm font-bold text-black">
+							Materials
+							<div class="flex space-x-2">
+								{#if player.resources.Wood > 0}
+									<div class="flex items-center">
+										{player.resources.Wood}
+										<img src="/wood.svg" alt="Wood" class="h-4 w-4" />
+									</div>
+								{/if}
+								{#if player.resources.Brick > 0}
+									<div class="flex items-center">
+										{player.resources.Brick}
+										<img src="/brick.svg" alt="Brick" class="h-4 w-4" />
+									</div>
+								{/if}
+								{#if player.resources.Wheat > 0}
+									<div class="flex items-center">
+										{player.resources.Wheat}
+										<img src="/wheat.svg" alt="Wheat" class="h-4 w-4" />
+									</div>
+								{/if}
+								{#if player.resources.Sheep > 0}
+									<div class="flex items-center">
+										{player.resources.Sheep}
+										<img src="/sheep.svg" alt="Sheep" class="h-4 w-4" />
+									</div>
+								{/if}
+								{#if player.resources.Stone > 0}
+									<div class="flex items-center">
+										{player.resources.Stone}
+										<img src="/stone.svg" alt="Stone" class="h-4 w-4" />
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/each}
 			{/if}
 		</div>
-		<Board {game} {socket} {uniqueName} />
-		<button
-			class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
-			onclick={() => {
-				socket!.emit('start game');
-			}}
-		>
-			Start game
-		</button>
 	{:catch error}
 		<p>{error.message}</p>
 	{/await}
