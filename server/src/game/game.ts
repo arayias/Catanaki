@@ -9,6 +9,8 @@ export class Game {
   currentPlayerIndex: number;
   initialPlacement: boolean;
   initialPlacementTurn: number;
+  hasStarted: boolean;
+  roll: number;
 
   constructor() {
     this.players = [];
@@ -18,6 +20,8 @@ export class Game {
     this.id = Math.random().toString(36).substring(7);
     this.initialPlacement = false;
     this.initialPlacementTurn = 0;
+    this.hasStarted = false;
+    this.roll = 0;
   }
 
   startInitialPlacement() {
@@ -40,6 +44,11 @@ export class Game {
     this.turn++;
     this.currentPlayerIndex =
       (this.currentPlayerIndex + 1) % this.players.length;
+  }
+
+  startGame() {
+    this.hasStarted = true;
+    this.startInitialPlacement();
   }
 
   getCurrentPlayer(): Player | undefined {
@@ -76,7 +85,7 @@ export class Game {
   handleBuildCommand(command: BuildCommand) {
     const { building, sender, location } = command;
     const player = this.getCurrentPlayer();
-    if (player.name !== sender) {
+    if (!player || player.name !== sender) {
       console.log(`It's not ${sender}'s turn.`);
       return false;
     }
@@ -152,11 +161,11 @@ export class Game {
       return false;
     }
 
-    const roll =
+    this.roll =
       Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
-    console.log(`${player.name} rolled a ${roll}`);
+    console.log(`${player.name} rolled a ${this.roll}`);
 
-    this.distributeResources(roll);
+    this.distributeResources(this.roll);
     this.nextTurn();
     return true;
   }
@@ -173,11 +182,7 @@ export class Game {
       if (player.canAffordBuilding("Settlement")) {
         const node = this.board.nodes.get(settlementLocation);
         if (node && !node.building) {
-          const b = player.buildBuilding(
-            "Settlement",
-            settlementLocation,
-            player.name
-          );
+          const b = player.buildBuilding("Settlement", settlementLocation);
           if (b) {
             node.building = b;
             console.log(
@@ -213,16 +218,21 @@ export class Game {
   }
 
   distributeResources(roll: number) {
+    console.log(`Distributing resources for roll: ${roll}`);
     for (let player of this.players) {
+      console.log(`Checking for resources for ${player.name}`);
       for (let building of player.buildings) {
+        console.log(`Checking building at ${building.location}`);
+        if (building.buildingType == "Road") {
+          continue;
+        }
         let multiplier = 1;
         if (building.buildingType === "City") {
           multiplier = 2;
-        } else {
-          continue;
         }
         let location = building.location;
         let node = this.board.nodes.get(location);
+        console.log(`Checking for resources at ${location}`);
         if (node) {
           for (let tile of node.adjacentTiles) {
             if (tile.roll === roll) {
@@ -280,9 +290,11 @@ export class Game {
     return {
       id: this.id,
       turn: this.turn,
+      hasStarted: this.hasStarted,
       currentPlayer: this.getCurrentPlayer()?.name,
       board: this.board.serializeBoard(),
       nodes: this.board.serializeNodes(),
+      roll: this.roll,
       players: this.players.map((player) => ({
         name: player.name,
         color: player.color,

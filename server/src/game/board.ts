@@ -249,13 +249,9 @@ export class Player {
     return true;
   }
 
-  buildBuilding(
-    buildingType: BuildingType,
-    location: string,
-    owner: Player["name"]
-  ) {
+  buildBuilding(buildingType: BuildingType, location: string) {
     if (this.canAffordBuilding(buildingType)) {
-      let building = new Building(buildingType, location, owner);
+      let building = new Building(buildingType, location, this.name);
       this.buildings.push(building);
       for (let material in costDict[buildingType]) {
         this.removeResource(

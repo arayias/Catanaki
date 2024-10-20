@@ -47,8 +47,6 @@ app.get("/game/:gameId", (req, res) => {
 });
 
 io.on("connection", (socket) => {
-  console.log("a user connected");
-
   socket.on("join game", (gameId) => {
     socket.join(gameId);
     console.log(`User ${socket.id} joined game: ${gameId}`);
@@ -56,34 +54,38 @@ io.on("connection", (socket) => {
     if (!game) {
       return;
     }
-    game.createPlayer("alice", "red");
-    console.log(`User ${socket.id} joined game: ${gameId}`);
 
-    socket.on("start game", () => {
-      if (!game) {
+    socket.on("create player", (name) => {
+      console.log(`Creating player: ${name} for game: ${gameId}`);
+      let alreadyExists = game.players.some((player) => player.name === name);
+      if (alreadyExists) {
+        console.error(
+          `Player ${name} already exists in game ${gameId} not creating`
+        );
         return;
       }
-      game.distributeResourcesForInitialPlacement();
-      io.to(gameId).emit("game update", game.serializeGameState());
-      socket.on("game command", (command) => {
-        console.log(
-          `game command: ${JSON.stringify(command)} in game: ${gameId}`
-        );
-        if (!game) {
-          console.error("gameId is undefined");
-          return;
-        }
-        let parsedCommand = JSON.parse(command);
-        let didCommandSucceed = game.handleCommand(parsedCommand);
-        if (didCommandSucceed) {
-          io.to(gameId).emit("game update", game);
-        }
-      });
+      game.createPlayer(name, name.slice(0, 1).toUpperCase());
     });
 
-    socket.on("leave game", () => {
-      socket.leave(gameId);
-      console.log(`User ${socket.id} left game: ${gameId}`);
+    socket.on("start game", () => {
+      if (game.hasStarted) {
+        console.error("Game has already started");
+        return;
+      }
+      game.startGame();
+      socket.emit("game update", game.serializeGameState());
+      io.to(gameId).emit("game update", game.serializeGameState());
+    });
+    socket.on("game command", (command) => {
+      if (!game || !game.hasStarted) {
+        console.error("game id not found or game has not started");
+        return;
+      }
+      let parsedCommand = JSON.parse(command);
+      let didCommandSucceed = game.handleCommand(parsedCommand);
+      if (didCommandSucceed) {
+        io.to(gameId).emit("game update", game.serializeGameState());
+      }
     });
   });
 });
