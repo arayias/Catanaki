@@ -1,0 +1,17 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+.entry {
+	width: 40vw;
+	height: 100vh;
+	display: flex;
+	justify-content: center;
+}
+.polygon {
+	height: 100px;
+	background-color: rgb(230, 192, 130);
+	position: absolute;
+	aspect-ratio: cos(30deg);
+	clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
