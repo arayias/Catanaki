@@ -31,7 +31,8 @@ export class Game {
   }
 
   createPlayer(name: string, color: string) {
-    const player = new Player(name, color);
+    const randomHexColor = Math.floor(Math.random() * 16777215).toString(16);
+    const player = new Player(name, `#${randomHexColor}`);
     this.addPlayer(player);
     return player;
   }
@@ -98,6 +99,7 @@ export class Game {
         if (b) {
           node.building = b;
           console.log(`${player.name} built a ${building} at ${location}`);
+          this.restrictAdjacentNodes(location);
         }
       } else {
         console.log(`${player.name} cannot afford to build a ${building}`);
@@ -108,6 +110,18 @@ export class Game {
       return false;
     }
     return true;
+  }
+
+  restrictAdjacentNodes(location: string) {
+    const node = this.board.nodes.get(location);
+    if (!node) return;
+    for (let neighbor of node.adjacentNodes) {
+      console.log(`Restricting node ${neighbor} from being adjacent`);
+      const neighborNode = this.board.nodes.get(neighbor);
+      if (neighborNode) {
+        neighborNode.buildable = false;
+      }
+    }
   }
 
   handleBuildRoadCommand(command: BuildRoadCommand) {
@@ -137,7 +151,7 @@ export class Game {
     if (roadEdge && !roadEdge.road) {
       if (player.canAffordBuilding("Road")) {
         console.log(`Building road at ${edge}`);
-        const road = player.buildRoad(edge, player.name);
+        const road = player.buildRoad(edge);
         if (road) {
           roadEdge.road = road;
           console.log(`${player.name} built a road at ${edge}`);
@@ -199,7 +213,7 @@ export class Game {
       if (player.canAffordBuilding("Road")) {
         const edge = this.board.edges.get(roadLocation);
         if (edge && !edge.road) {
-          const road = player.buildRoad(roadLocation, player.name);
+          const road = player.buildRoad(roadLocation);
           if (road) {
             edge.road = road;
             console.log(`${player.name} built a Road at ${roadLocation}`);

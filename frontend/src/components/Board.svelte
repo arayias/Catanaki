@@ -5,13 +5,18 @@
 	let gameId = data.id;
 	let board = $derived(data.game.board);
 	let nodeData = $derived(data.game.nodes);
+	let players = $derived(data.game.players);
+	let name = $derived(data.uniqueName);
 	let socket: Socket = data.socket;
 
-	let brickSvg = '../../brick.svg';
-	let stoneSvg = '../../stone.svg';
-	let wheatSvg = '../../wheat.svg';
-	let woodSvg = '../../wood.svg';
-	let sheepSvg = '../../sheep.svg';
+	let brickSvg = '../brick.svg';
+	let stoneSvg = '../stone.svg';
+	let wheatSvg = '../wheat.svg';
+	let woodSvg = '../wood.svg';
+	let sheepSvg = '../sheep.svg';
+	let citySvg = '../city.svg';
+	let roadSvg = '../road.svg';
+	let settlementSvg = '../settlement.svg';
 
 	let hexagons: {
 		row: number;
@@ -40,7 +45,7 @@
 			case 'Wood':
 				return '#089343';
 			case 'Wheat':
-				return '#fbbc3f';
+				return '#d4c02f';
 			case 'Sheep':
 				return '#93b731';
 			default:
@@ -48,7 +53,7 @@
 		}
 	}
 
-	function getSvgFromType(type: string) {
+	function getSvgFromResourceType(type: string) {
 		switch (type) {
 			case 'Stone':
 				return stoneSvg;
@@ -60,6 +65,28 @@
 				return wheatSvg;
 			case 'Sheep':
 				return sheepSvg;
+			default:
+				return '';
+		}
+	}
+
+	function getColorFromPlayerName(name: string) {
+		for (let player of players) {
+			if (player.name === name) {
+				return player.color;
+			}
+		}
+		return 'lightgray';
+	}
+
+	function getSvgFromBuildingType(type: string) {
+		switch (type) {
+			case 'City':
+				return citySvg;
+			case 'Road':
+				return roadSvg;
+			case 'Settlement':
+				return settlementSvg;
 			default:
 				return '';
 		}
@@ -153,7 +180,7 @@
 				<div>
 					<img
 						class="aspect-square"
-						src={getSvgFromType(hex.type)}
+						src={getSvgFromResourceType(hex.type)}
 						alt={hex.type}
 						style="height: {hex.height / 4}px "
 					/>
@@ -169,39 +196,64 @@
 		</button>
 	{/each}
 	{#each nodes as node}
-		<button
-			class="node absolute aspect-square rounded-full bg-slate-300 opacity-70"
-			data-idx={node.idx}
-			style="top: {node.y}px; left: {node.x}px; background-color: {node.building === null
-				? 'blue'
-				: 'red'}; height: {node.h}px;"
-			onclick={() => {
-				console.log(`(${node.idx})`);
-				console.log(socket);
-				socket.emit(
-					'game command',
-					JSON.stringify({
-						type: 'build',
-						building: 'Settlement',
-						location: node.idx,
-						sender: data.uniqueName
-					})
-				);
-			}}
-			onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
-			aria-label={`Node at row ${node.y}, column ${node.x}`}
-		>
-			<div class="flex flex-col items-center justify-center">
-				<!-- <div>
-					<img
-						class="aspect-square"
-						src={node.building === 'null' ? '' : '../../city.svg'}
-						alt={node.building}
-						style="height: 20px"
-					/>
-				</div> -->
-			</div>
-		</button>
+		{#if node.building == false}{:else if node.building != true}
+			<button
+				class="node absolute aspect-square rounded-full p-1"
+				data-idx={node.idx}
+				style="top: {node.y - node.h * 1.4}px; left: {node.x - node.h * 1}px; height: {node.h *
+					3}px; background-color:{getColorFromPlayerName(node.building.owner)};"
+				onclick={() => {
+					console.log(`(${node.idx})`);
+					console.log(socket);
+					socket.emit(
+						'game command',
+						JSON.stringify({
+							type: 'upgrade',
+							location: node.idx,
+							sender: data.uniqueName
+						})
+					);
+				}}
+				onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
+				aria-label={`Node at row ${node.y}, column ${node.x}`}
+			>
+				<div class="flex flex-col items-center justify-center">
+					{#if node.building !== null}
+						<div class="aspect-square">
+							<img
+								class="aspect-square object-contain"
+								src={getSvgFromBuildingType(node.building.buildingType)}
+								alt={node.building.buildingType}
+							/>
+						</div>
+					{/if}
+				</div>
+			</button>
+		{:else if name == data.game.currentPlayer}
+			<button
+				class="node absolute aspect-square rounded-full bg-slate-300 opacity-70"
+				data-idx={node.idx}
+				style="top: {node.y}px; left: {node.x}px; background-color: {node.building === true
+					? 'blue'
+					: 'red'}; height: {node.h}px;"
+				onclick={() => {
+					console.log(`(${node.idx})`);
+					console.log(socket);
+					socket.emit(
+						'game command',
+						JSON.stringify({
+							type: 'build',
+							building: 'Settlement',
+							location: node.idx,
+							sender: data.uniqueName
+						})
+					);
+				}}
+				onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
+				aria-label={`Node at row ${node.y}, column ${node.x}`}
+			>
+			</button>
+		{/if}
 	{/each}
 </div>
 

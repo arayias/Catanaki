@@ -28,6 +28,7 @@ type Node = {
   y: string;
   adjacentTiles: Tile[];
   adjacentNodes: string[];
+  buildable: boolean;
   building: Building | null;
 };
 
@@ -111,6 +112,7 @@ export class Board {
           adjacentTiles: [],
           adjacentNodes: [],
           building: null,
+          buildable: true,
         });
       }
 
@@ -173,9 +175,13 @@ export class Board {
   }
 
   serializeNodes() {
-    let serializedNodes: { [key: string]: Building | null } = {};
+    let serializedNodes: { [key: string]: Building | boolean } = {};
     for (let [key, node] of this.nodes) {
-      serializedNodes[key] = node.building;
+      if (node.building) {
+        serializedNodes[key] = node.building;
+      } else {
+        serializedNodes[key] = node.buildable;
+      }
     }
     return serializedNodes;
   }
@@ -264,8 +270,8 @@ export class Player {
     return null;
   }
 
-  buildRoad(edge: string, owner: Player["name"]) {
-    return this.buildBuilding("Road", edge, owner);
+  buildRoad(edge: string) {
+    return this.buildBuilding("Road", edge);
   }
 }
 

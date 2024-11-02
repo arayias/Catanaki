@@ -86,6 +86,9 @@
 				</button>
 			{/if}
 			{#if game.hasStarted}
+				<p class="text-3xl font-bold">
+					🎲 {game.roll}
+				</p>
 				{#if game.currentPlayer === uniqueName}
 					<button
 						class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
@@ -100,11 +103,13 @@
 					</button>
 				{/if}
 				{#each game.players as player}
-					<div>
+					<div
+						class="mt-1 w-full rounded-lg p-2 {player.name === game.currentPlayer
+							? 'bg-blue-500'
+							: 'bg-slate-300'}"
+					>
 						{player.name}
-						{#if player.name === game.currentPlayer}
-							<span>🎲</span>
-						{/if}
+
 						<div class="text-sm font-bold text-black">
 							Materials
 							<div class="flex space-x-2">
