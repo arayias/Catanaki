@@ -308,6 +308,7 @@ export class Game {
       currentPlayer: this.getCurrentPlayer()?.name,
       board: this.board.serializeBoard(),
       nodes: this.board.serializeNodes(),
+      edges: this.board.serializeEdges(),
       roll: this.roll,
       players: this.players.map((player) => ({
         name: player.name,

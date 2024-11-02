@@ -201,10 +201,9 @@
 				class="node absolute aspect-square rounded-full p-1"
 				data-idx={node.idx}
 				style="top: {node.y - node.h * 1.4}px; left: {node.x - node.h * 1}px; height: {node.h *
-					3}px; background-color:{getColorFromPlayerName(node.building.owner)};"
+					3.5}px; background-color:{getColorFromPlayerName(node.building.owner)};"
 				onclick={() => {
 					console.log(`(${node.idx})`);
-					console.log(socket);
 					socket.emit(
 						'game command',
 						JSON.stringify({
@@ -219,7 +218,7 @@
 			>
 				<div class="flex flex-col items-center justify-center">
 					{#if node.building !== null}
-						<div class="aspect-square">
+						<div class="aspect-square p-1">
 							<img
 								class="aspect-square object-contain"
 								src={getSvgFromBuildingType(node.building.buildingType)}
@@ -238,7 +237,6 @@
 					: 'red'}; height: {node.h}px;"
 				onclick={() => {
 					console.log(`(${node.idx})`);
-					console.log(socket);
 					socket.emit(
 						'game command',
 						JSON.stringify({

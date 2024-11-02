@@ -9,10 +9,21 @@
 	let connectedPlayers = $state(0);
 	let connected = $state(false);
 	let uniqueName = $state('');
+	let selectedBuilding = $state('');
+
+	let allowedBuildings = ['settlement', 'city', 'road'];
 
 	const getGame = async () => {
 		const response = await axios.get(`http://localhost:3001/game/${id}`);
 		return response.data;
+	};
+
+	const handleSelectBuilding = (building: string) => () => {
+		if (selectedBuilding === building) {
+			selectedBuilding = '';
+			return;
+		}
+		selectedBuilding = building;
 	};
 
 	let socket: Socket | null = $state(null);
@@ -65,7 +76,7 @@
 		<p>Loading...</p>
 	{:then game}
 		<Board {game} {socket} {uniqueName} />
-		<div class="flex flex-col items-center justify-center bg-slate-200 p-3">
+		<div class="flex flex-col items-center justify-center bg-slate-200 p-5">
 			<div>
 				<!-- {connectedPlayers} -->
 				{#if connected}
@@ -102,52 +113,68 @@
 						End turn
 					</button>
 				{/if}
-				{#each game.players as player}
-					<div
-						class="mt-1 w-full rounded-lg p-2 {player.name === game.currentPlayer
-							? 'bg-blue-500'
-							: 'bg-slate-300'}"
-					>
-						{player.name}
+				{#if game.currentPlayer === uniqueName}
+					<div class="flex flex-col items-center justify-center bg-slate-200 p-5">
+						{#each allowedBuildings as building}
+							<button
+								class="flex flex-col items-center space-x-2 rounded-lg p-1 {selectedBuilding ===
+								building
+									? 'bg-blue-500'
+									: ''}"
+								onclick={handleSelectBuilding(building)}
+							>
+								<img src={`/${building}.svg`} alt={building} class="h-4 w-4" />
+								<span>{building.slice(0, 1).toUpperCase() + building.slice(1)}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			{/if}
+			{#each game.players as player}
+				<div
+					class="mt-1 w-full rounded-lg p-2 {player.name === game.currentPlayer
+						? 'bg-blue-500'
+						: 'bg-slate-300'}"
+				>
+					{player.name}
 
-						<div class="text-sm font-bold text-black">
-							Materials
-							<div class="flex space-x-2">
-								{#if player.resources.Wood > 0}
-									<div class="flex items-center">
-										{player.resources.Wood}
-										<img src="/wood.svg" alt="Wood" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Brick > 0}
-									<div class="flex items-center">
-										{player.resources.Brick}
-										<img src="/brick.svg" alt="Brick" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Wheat > 0}
-									<div class="flex items-center">
-										{player.resources.Wheat}
-										<img src="/wheat.svg" alt="Wheat" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Sheep > 0}
-									<div class="flex items-center">
-										{player.resources.Sheep}
-										<img src="/sheep.svg" alt="Sheep" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Stone > 0}
-									<div class="flex items-center">
-										{player.resources.Stone}
-										<img src="/stone.svg" alt="Stone" class="h-4 w-4" />
-									</div>
-								{/if}
-							</div>
+					<div class="text-sm font-bold text-black">
+						Materials
+						<div class="flex space-x-2">
+							{#if player.resources.Wood > 0}
+								<div class="flex items-center">
+									{player.resources.Wood}
+									<img src="/wood.svg" alt="Wood" class="h-4 w-4" />
+								</div>
+							{/if}
+							{#if player.resources.Brick > 0}
+								<div class="flex items-center">
+									{player.resources.Brick}
+									<img src="/brick.svg" alt="Brick" class="h-4 w-4" />
+								</div>
+							{/if}
+							{#if player.resources.Wheat > 0}
+								<div class="flex items-center">
+									{player.resources.Wheat}
+									<img src="/wheat.svg" alt="Wheat" class="h-4 w-4" />
+								</div>
+							{/if}
+							{#if player.resources.Sheep > 0}
+								<div class="flex items-center">
+									{player.resources.Sheep}
+									<img src="/sheep.svg" alt="Sheep" class="h-4 w-4" />
+								</div>
+							{/if}
+							{#if player.resources.Stone > 0}
+								<div class="flex items-center">
+									{player.resources.Stone}
+									<img src="/stone.svg" alt="Stone" class="h-4 w-4" />
+								</div>
+							{/if}
 						</div>
 					</div>
-				{/each}
-			{/if}
+				</div>
+			{/each}
 		</div>
 	{:catch error}
 		<p>{error.message}</p>
