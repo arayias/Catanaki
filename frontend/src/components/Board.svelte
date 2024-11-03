@@ -372,34 +372,27 @@
 				>
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					{#if nodeMap.get(parent) && nodeMap.get(node)}
+						{@const owned = isRoadOwned(parent, node)}
+						{@const allowed = isAllowedRoad(parent, node)}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<line
 							x1={nodeMap.get(parent).x}
 							y1={nodeMap.get(parent).y}
 							x2={nodeMap.get(node).x}
 							y2={nodeMap.get(node).y}
-							stroke={isRoadOwned(parent, node)
+							stroke={owned
 								? getRoadOwner(parent, node)
-								: isAllowedRoad(parent, node) && selectedBuilding === 'road'
+								: allowed && selectedBuilding === 'road'
 									? 'lightgray'
 									: 'black'}
-							stroke-width={(isAllowedRoad(parent, node) && selectedBuilding === 'road') ||
-							isRoadOwned(parent, node)
-								? 10
-								: 3}
+							stroke-width={(allowed && selectedBuilding === 'road') || owned ? 10 : 3}
 							stroke-linecap="round"
-							class={isAllowedRoad(parent, node) &&
-							selectedBuilding === 'road' &&
-							!isRoadOwned(parent, node)
-								? 'potential-road'
-								: ''}
-							stroke-dasharray={isAllowedRoad(parent, node) && selectedBuilding === 'road'
-								? '10,5'
-								: 'none'}
+							class={allowed && selectedBuilding === 'road' && !owned ? 'potential-road' : ''}
+							stroke-dasharray={allowed && selectedBuilding === 'road' ? '10,5' : 'none'}
 							style="pointer-events: auto;"
 							onclick={() => {
 								console.log('parent, node', parent, node);
-								if (isAllowedRoad(parent, node) && selectedBuilding === 'road') {
+								if (allowed && selectedBuilding === 'road') {
 									socket.emit(
 										'game command',
 										JSON.stringify({

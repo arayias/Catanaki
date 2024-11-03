@@ -287,7 +287,7 @@ export class Game {
       const node = this.board.nodes.get(start);
       if (node?.building && node.building.owner !== player.name) continue;
 
-      const length = findLongestPath(start, 0, null);
+      const length = findLongestPath(start, 1, null);
       maxLength = Math.max(maxLength, length);
     }
 

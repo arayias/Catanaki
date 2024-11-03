@@ -126,6 +126,7 @@ export class Board {
   }
 
   createEdges() {
+    console.log(JSON.stringify(this.serializeBoard()));
     for (let [nodeKey, node] of this.nodes) {
       let [row, col] = nodeKey.split(",").map((x) => parseFloat(x));
 
@@ -141,7 +142,10 @@ export class Board {
       for (let point of adjacentPoints) {
         let pointKey = `${point[0].toFixed(2)},${point[1].toFixed(2)}`;
         if (this.nodes.has(pointKey)) {
-          if (!node.adjacentNodes.includes(pointKey)) {
+          if (
+            !node.adjacentNodes.includes(pointKey) &&
+            this.hasACommonAdjacentMaterialTile(row, col, point[0], point[1])
+          ) {
             node.adjacentNodes.push(pointKey);
           }
 
@@ -156,6 +160,23 @@ export class Board {
         }
       }
     }
+  }
+
+  hasACommonAdjacentMaterialTile(
+    row1: number,
+    col1: number,
+    row2: number,
+    col2: number
+  ): boolean {
+    const node1 = this.nodes.get(`${row1.toFixed(2)},${col1.toFixed(2)}`);
+    const node2 = this.nodes.get(`${row2.toFixed(2)},${col2.toFixed(2)}`);
+    if (!node1 || !node2) return false;
+    for (let tile of node1.adjacentTiles) {
+      for (let otherTile of node2.adjacentTiles) {
+        if (tile === otherTile) return true;
+      }
+    }
+    return false;
   }
 
   getEdgeKey(node1: string, node2: string): string {
@@ -341,10 +362,10 @@ export const costDict: {
 
 const exampleBoard: BoardPlaceHolders[][] = [
   ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "X", "#", "#", "#", "X", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "#", "#", "#", "#", "#", "X"],
-  ["X", "X", "#", "#", "#", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "#", "X", "#", "X", "X"],
+  ["X", "X", "#", "X", "X", "X", "#"],
   ["X", "X", "X", "X", "X", "X", "X"],
 ];
