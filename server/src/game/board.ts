@@ -28,8 +28,9 @@ type Node = {
   y: string;
   adjacentTiles: Tile[];
   adjacentNodes: string[];
-  buildable: boolean;
+  buildable: boolean | "never";
   building: Building | null;
+  playerRoads: Set<string>;
 };
 
 type Edge = {
@@ -113,6 +114,7 @@ export class Board {
           adjacentNodes: [],
           building: null,
           buildable: true,
+          playerRoads: new Set(),
         });
       }
 
@@ -175,7 +177,7 @@ export class Board {
   }
 
   serializeNodes() {
-    let serializedNodes: { [key: string]: Building | boolean } = {};
+    let serializedNodes: { [key: string]: Building | boolean | "never" } = {};
     for (let [key, node] of this.nodes) {
       if (node.building) {
         serializedNodes[key] = node.building;
@@ -187,11 +189,20 @@ export class Board {
   }
 
   serializeEdges() {
-    let serializedEdges: { [key: string]: Building | null } = {};
-    for (let [key, edge] of this.edges) {
-      serializedEdges[key] = edge.road;
+    // let serializedEdges: { [key: string]: Building | null } = {};
+    // for (let [key, edge] of this.edges) {
+    //   serializedEdges[key] = edge.road;
+    // }
+    // return serializedEdges;
+    let adjacencyList: { [key: string]: string[] } = {};
+    for (let [key, node] of this.nodes) {
+      adjacencyList[key] = [];
+      for (let neighbor of node.adjacentNodes) {
+        adjacencyList[key].push(neighbor);
+      }
+      adjacencyList[key] = adjacencyList[key].sort();
     }
-    return serializedEdges;
+    return adjacencyList;
   }
 }
 
@@ -218,9 +229,10 @@ class Building {
 export class Player {
   name: string;
   color: string;
+  score: number;
   resources: { [key in Exclude<Material, "Desert">]: number };
   buildings: Building[];
-
+  buildingLimits: { [key in BuildingType]: number };
   constructor(name: string, color: string) {
     this.name = name;
     this.color = color;
@@ -231,7 +243,13 @@ export class Player {
       Sheep: 0,
       Brick: 0,
     };
+    this.buildingLimits = {
+      City: 4,
+      Settlement: 4,
+      Road: 999,
+    };
     this.buildings = [];
+    this.score = 0;
   }
 
   addResource(material: Exclude<Material, "Desert">, amnt: number) {
@@ -256,7 +274,10 @@ export class Player {
   }
 
   buildBuilding(buildingType: BuildingType, location: string) {
-    if (this.canAffordBuilding(buildingType)) {
+    if (
+      this.canAffordBuilding(buildingType) &&
+      this.buildingLimits[buildingType] > 0
+    ) {
       let building = new Building(buildingType, location, this.name);
       this.buildings.push(building);
       for (let material in costDict[buildingType]) {
@@ -265,6 +286,30 @@ export class Player {
           costDict[buildingType][material as Material] ?? 0
         );
       }
+      if (buildingType !== "Road") {
+        this.score += 1;
+      }
+      this.buildingLimits[buildingType] -= 1;
+      return building;
+    }
+    return null;
+  }
+
+  upgradeBuilding(buildingType: BuildingType, location: string) {
+    if (
+      this.canAffordBuilding(buildingType) &&
+      this.buildingLimits[buildingType] > 0
+    ) {
+      let building = new Building(buildingType, location, this.name);
+      this.buildings.push(building);
+      for (let material in costDict[buildingType]) {
+        this.removeResource(
+          material as Exclude<Material, "Desert">,
+          costDict[buildingType][material as Material] ?? 0
+        );
+      }
+      this.buildingLimits[buildingType] -= 1;
+      this.score += 1;
       return building;
     }
     return null;
@@ -275,7 +320,9 @@ export class Player {
   }
 }
 
-const costDict: { [key in BuildingType]: { [key in Material]?: number } } = {
+export const costDict: {
+  [key in BuildingType]: { [key in Material]?: number };
+} = {
   Settlement: {
     Wood: 1,
     Wheat: 1,

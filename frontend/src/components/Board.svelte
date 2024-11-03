@@ -5,9 +5,11 @@
 	let gameId = data.id;
 	let board = $derived(data.game.board);
 	let nodeData = $derived(data.game.nodes);
+	let validPossibleBuildingLocations = $derived(data.game.validBuildingLocations);
 	let players = $derived(data.game.players);
 	let name = $derived(data.uniqueName);
 	let socket: Socket = data.socket;
+	let selectedBuilding = $derived(data.selectedBuilding);
 
 	let brickSvg = '../brick.svg';
 	let stoneSvg = '../stone.svg';
@@ -35,6 +37,8 @@
 		idx: string;
 		h: number;
 	}[] = $state([]);
+
+	let nodeMap = $state(new Map());
 
 	function getColorFromType(type: string) {
 		switch (type) {
@@ -93,10 +97,10 @@
 	}
 
 	function positionHexagons() {
-		const entry = document.querySelector('.entry');
+		const entry = document.querySelector('.game-grid');
 		if (!entry) return;
-		const containerWidth = entry.getBoundingClientRect().width * Math.sqrt(3);
-		const containerHeight = (entry.getBoundingClientRect().height * 4) / 3;
+		const containerWidth = entry.getBoundingClientRect().width * Math.sqrt(3) * 0.8;
+		const containerHeight = ((entry.getBoundingClientRect().height * 4) / 3) * 0.8;
 		const maximumWidth = Math.floor(containerWidth / board[0].length);
 		const maximumHeight = Math.floor(containerHeight / board.length);
 		const maxPossibleSize = maximumHeight / 2;
@@ -138,21 +142,107 @@
 
 	function positionNodes(height: number, width: number) {
 		let nodes = [];
+		let currentMap = new Map();
 		let pixelSize = 12;
 		let offset = pixelSize * 4;
 		let yOff = (1 / 2) * height - (1 / offset) * height;
 		for (let key in nodeData) {
 			const building = nodeData[key];
 			let [y, x] = key.split(',').map(Number);
+
+			// currentMap.set(key, {
+			// 	x: x * width - 0.77 * width,
+			// 	y: y * height + yOff - 0.28 * height,
+			// 	idx: key
+			// });
 			nodes.push({
-				x: x * width + 0.45 * width,
+				x: x * width + 0.445 * width,
 				y: y * height + yOff,
 				idx: key,
 				building: building,
 				h: height / pixelSize
 			});
+			currentMap.set(key, {
+				x: x * width + 0.485 * width,
+				y: y * height + yOff + 0.03 * height,
+				idx: key,
+				building: building,
+				h: height / pixelSize
+			});
 		}
+		nodeMap = currentMap;
 		return nodes;
+	}
+	function getRoadOwner(from, to) {
+		// Normalize road format to match both directions
+		const roadKey1 = `${from}-${to}`;
+		const roadKey2 = `${to}-${from}`;
+
+		for (const player of players) {
+			const hasRoad = player.buildings.some(
+				(building) =>
+					building.type === 'Road' &&
+					(building.location === roadKey1 || building.location === roadKey2)
+			);
+
+			if (hasRoad) {
+				return player.color;
+			}
+		}
+		return 'black'; // Default color if no player owns the road
+	}
+
+	function isRoadOwned(from, to) {
+		// Normalize road format to match both directions
+		const roadKey1 = `${from}-${to}`;
+		const roadKey2 = `${to}-${from}`;
+
+		return players.some((player) =>
+			player.buildings.some(
+				(building) =>
+					building.type === 'Road' &&
+					(building.location === roadKey1 || building.location === roadKey2)
+			)
+		);
+	}
+
+	const allowedRoads = $derived.by(() => {
+		let current = [];
+		for (let player of players) {
+			if (player.name === data.game.currentPlayer) {
+				for (let building of player.buildings) {
+					if (nodeMap.has(building.location)) {
+						// get adjacencts
+						// console.log(`checking if ${building.location} has adjacent`);
+						let adjacent = data.game.edges[building.location];
+						for (let neighbor of adjacent) {
+							if (nodeMap.has(neighbor)) {
+								current.push([building.location, neighbor]);
+							}
+						}
+					} else if (building.type === 'Road') {
+						let [from, to] = building.location.split('-');
+						for (let neighbor of data.game.edges[from]) {
+							if (nodeMap.has(neighbor)) {
+								current.push([from, neighbor]);
+							}
+						}
+						for (let neighbor of data.game.edges[to]) {
+							if (nodeMap.has(neighbor)) {
+								current.push([neighbor, to]);
+							}
+						}
+					}
+				}
+			}
+		}
+		return current;
+	});
+
+	function isAllowedRoad(parent, node) {
+		return allowedRoads.some(
+			(road) => (road[0] === parent && road[1] === node) || (road[0] === node && road[1] === parent)
+		);
 	}
 
 	$effect(() => {
@@ -162,97 +252,169 @@
 	});
 </script>
 
-<div id="board" class="entry">
-	{#each hexagons as hex}
-		<button
-			class="polygon absolute"
-			data-row={hex.row}
-			data-col={hex.col}
-			data-roll={hex.roll}
-			style="height: {hex.height}px; top: {hex.y}px; left: {hex.x}px; background-color: {getColorFromType(
-				hex.type
-			)};"
-			onclick={() => console.log(`(${hex.row}, ${hex.col})`)}
-			onkeydown={(e) => e.key === 'Enter' && console.log(`(${hex.row}, ${hex.col})`)}
-			aria-label={`Hexagon at row ${hex.row}, column ${hex.col}`}
-		>
-			<div class="flex flex-col items-center justify-center">
-				<div>
-					<img
-						class="aspect-square"
-						src={getSvgFromResourceType(hex.type)}
-						alt={hex.type}
-						style="height: {hex.height / 4}px "
-					/>
-				</div>
-				<div class="aspect-square rounded-full bg-slate-200 p-2">
-					<span
-						class={`text-xl font-bold ${hex.roll === '6' || hex.roll === '8' ? 'text-red-600' : 'text-blue-950'}`}
-					>
-						{hex.roll}
-					</span>
-				</div>
-			</div>
-		</button>
-	{/each}
-	{#each nodes as node}
-		{#if node.building == false}{:else if node.building != true}
+<div id="board" class="relative bg-blue-500">
+	<div class="">
+		{#each hexagons as hex}
 			<button
-				class="node absolute aspect-square rounded-full p-1"
-				data-idx={node.idx}
-				style="top: {node.y - node.h * 1.4}px; left: {node.x - node.h * 1}px; height: {node.h *
-					3.5}px; background-color:{getColorFromPlayerName(node.building.owner)};"
-				onclick={() => {
-					console.log(`(${node.idx})`);
-					socket.emit(
-						'game command',
-						JSON.stringify({
-							type: 'upgrade',
-							location: node.idx,
-							sender: data.uniqueName
-						})
-					);
-				}}
-				onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
-				aria-label={`Node at row ${node.y}, column ${node.x}`}
+				class="polygon pointer-events-none absolute"
+				data-row={hex.row}
+				data-col={hex.col}
+				data-roll={hex.roll}
+				style="height: {hex.height}px; top: {hex.y}px; left: {hex.x}px; background-color: {getColorFromType(
+					hex.type
+				)};"
+				onclick={() => console.log(`(${hex.row}, ${hex.col})`)}
+				onkeydown={(e) => e.key === 'Enter' && console.log(`(${hex.row}, ${hex.col})`)}
+				aria-label={`Hexagon at row ${hex.row}, column ${hex.col}`}
 			>
 				<div class="flex flex-col items-center justify-center">
-					{#if node.building !== null}
-						<div class="aspect-square p-1">
-							<img
-								class="aspect-square object-contain"
-								src={getSvgFromBuildingType(node.building.buildingType)}
-								alt={node.building.buildingType}
-							/>
-						</div>
-					{/if}
+					<div>
+						<img
+							class="aspect-square"
+							src={getSvgFromResourceType(hex.type)}
+							alt={hex.type}
+							style="height: {hex.height / 4}px "
+						/>
+					</div>
+					<div
+						class="flex aspect-square flex-col items-center justify-center rounded-full bg-slate-200 p-0.5"
+					>
+						<span
+							class={`text-sm font-bold ${hex.roll === '6' || hex.roll === '8' ? 'text-red-600' : 'text-blue-950'}`}
+						>
+							{hex.roll}
+						</span>
+					</div>
 				</div>
 			</button>
-		{:else if name == data.game.currentPlayer}
-			<button
-				class="node absolute aspect-square rounded-full bg-slate-300 opacity-70"
-				data-idx={node.idx}
-				style="top: {node.y}px; left: {node.x}px; background-color: {node.building === true
-					? 'blue'
-					: 'red'}; height: {node.h}px;"
-				onclick={() => {
-					console.log(`(${node.idx})`);
-					socket.emit(
-						'game command',
-						JSON.stringify({
-							type: 'build',
-							building: 'Settlement',
-							location: node.idx,
-							sender: data.uniqueName
-						})
-					);
-				}}
-				onkeydown={(e) => e.key === 'Enter' && console.log(`(${node.y}, ${node.x})`)}
-				aria-label={`Node at row ${node.y}, column ${node.x}`}
-			>
-			</button>
-		{/if}
-	{/each}
+		{/each}
+		{#each nodes as node}
+			{#if node.building == false || node.building === 'never' || node.building === true}
+				{#if validPossibleBuildingLocations?.includes(node.idx) && selectedBuilding === 'settlement'}
+					<button
+						class="node absolute aspect-square animate-pulse rounded-full border-2 border-slate-300 bg-gray-600 p-1"
+						data-idx={node.idx}
+						style="top: {node.y}px; left: {node.x}px; height: {node.h}px; z-index: 4;"
+						onclick={() => {
+							console.log(`(${node.idx})`);
+							socket.emit(
+								'game command',
+								JSON.stringify({
+									type: data.game.initialPlacement ? 'initialPlacement' : 'build',
+									building: 'Settlement',
+									location: node.idx,
+									sender: data.uniqueName
+								})
+							);
+						}}
+					/>
+				{/if}
+			{:else if node.building != true}
+				<button
+					class="node absolute aspect-square rounded-full border-2 border-slate-800 p-1 {node
+						.building.buildingType === 'Settlement'
+						? 'settlement'
+						: 'city'}"
+					data-idx={node.idx}
+					style="top: {node.y - node.h * 1.5}px; left: {node.x - node.h * 1.3}px; height: {node.h *
+						4}px; background-color:{getColorFromPlayerName(node.building.owner)}; z-index: 4;"
+					onclick={() => {
+						if (selectedBuilding !== 'city') {
+							return;
+						}
+						console.log(`(${node.idx})`);
+						socket.emit(
+							'game command',
+							JSON.stringify({
+								type: 'upgrade',
+								location: node.idx,
+								sender: data.uniqueName
+							})
+						);
+					}}
+				>
+					<div class="relative flex flex-col items-center justify-center">
+						{#if node.building !== null}
+							<div class="aspect-square p-1">
+								<img
+									class="aspect-square object-contain"
+									src={getSvgFromBuildingType(node.building.buildingType)}
+									alt={node.building.buildingType}
+								/>
+							</div>
+						{/if}
+						{#if selectedBuilding === 'city' && node.building.buildingType !== 'City'}
+							<div class="absolute left-0 top-0 h-full w-full">
+								<div
+									class="aspect-square animate-pulse rounded-full bg-slate-200 p-2 opacity-10"
+								></div>
+							</div>
+						{/if}
+					</div>
+				</button>
+			{/if}
+		{/each}
+
+		{#each Object.entries(data.game.edges) as [parent, edge]}
+			{#each edge as node}
+				<svg
+					class="absolute"
+					data-parent={parent}
+					data-neighbor={node}
+					style="top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: {isRoadOwned(
+						parent,
+						node
+					)
+						? 3
+						: 2}"
+					preserveAspectRatio="none"
+				>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					{#if nodeMap.get(parent) && nodeMap.get(node)}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<line
+							x1={nodeMap.get(parent).x}
+							y1={nodeMap.get(parent).y}
+							x2={nodeMap.get(node).x}
+							y2={nodeMap.get(node).y}
+							stroke={isRoadOwned(parent, node)
+								? getRoadOwner(parent, node)
+								: isAllowedRoad(parent, node) && selectedBuilding === 'road'
+									? 'lightgray'
+									: 'black'}
+							stroke-width={(isAllowedRoad(parent, node) && selectedBuilding === 'road') ||
+							isRoadOwned(parent, node)
+								? 10
+								: 3}
+							stroke-linecap="round"
+							class={isAllowedRoad(parent, node) &&
+							selectedBuilding === 'road' &&
+							!isRoadOwned(parent, node)
+								? 'potential-road'
+								: ''}
+							stroke-dasharray={isAllowedRoad(parent, node) && selectedBuilding === 'road'
+								? '10,5'
+								: 'none'}
+							style="pointer-events: auto;"
+							onclick={() => {
+								console.log('parent, node', parent, node);
+								if (isAllowedRoad(parent, node) && selectedBuilding === 'road') {
+									socket.emit(
+										'game command',
+										JSON.stringify({
+											type: 'buildRoad',
+											sender: data.uniqueName,
+											edge: [parent, node].sort().join('-')
+										})
+									);
+								}
+							}}
+						/>
+					{/if}
+				</svg>
+			{/each}
+		{/each}
+	</div>
 </div>
 
 <style>
@@ -262,5 +424,19 @@
 	}
 	.node {
 		position: absolute;
+	}
+	@keyframes roadFade {
+		0% {
+			opacity: 1;
+			stroke-dashoffset: 0;
+		}
+		100% {
+			opacity: 0.4;
+			stroke-dashoffset: 300;
+		}
+	}
+
+	.potential-road {
+		animation: roadFade 1.5s ease-in-out infinite alternate;
 	}
 </style>
