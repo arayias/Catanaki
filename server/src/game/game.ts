@@ -255,12 +255,12 @@ export class Game {
     });
 
     let maxLength = 0;
-    const visited = new Set<string>();
 
     const findLongestPath = (
       current: string,
       length: number,
-      prevNode: string | null
+      prevNode: string | null,
+      visited: Set<string>
     ): number => {
       let maxPathLength = length;
 
@@ -276,10 +276,11 @@ export class Game {
         const node = this.board.nodes.get(next);
         if (node?.building && node.building.owner !== player.name) continue;
 
-        const pathLength = findLongestPath(next, length + 1, current);
+        const pathLength = findLongestPath(next, length + 1, current, visited);
         maxPathLength = Math.max(maxPathLength, pathLength);
       }
 
+      visited.delete(current);
       return maxPathLength;
     };
 
@@ -287,7 +288,8 @@ export class Game {
       const node = this.board.nodes.get(start);
       if (node?.building && node.building.owner !== player.name) continue;
 
-      const length = findLongestPath(start, 1, null);
+      const visited = new Set<string>();
+      const length = findLongestPath(start, 0, null, visited);
       maxLength = Math.max(maxLength, length);
     }
 
