@@ -157,6 +157,12 @@ export class Game {
           node.building = b;
           console.log(`${player.name} built a ${building} at ${location}`);
           this.restrictAdjacentNodes(location);
+          if (
+            this.turn >= this.players.length &&
+            this.turn < this.players.length * 2
+          ) {
+            this.distributeAdjacentResources(location, player);
+          }
         }
       } else {
         console.log(`${player.name} cannot afford to build a ${building}`);
@@ -428,6 +434,18 @@ export class Game {
           }
         }
       }
+    }
+  }
+
+  distributeAdjacentResources(location: string, player: Player) {
+    // distribute resources to adjacent nodes used when the
+    // second settlement is built
+    console.log(`Distributing adjacent resources for ${location}`);
+    const node = this.board.nodes.get(location);
+    if (!node) return;
+    for (let adjacentTile of node.adjacentTiles) {
+      let material = adjacentTile.land as Exclude<Material, "Desert">;
+      player.addResource(material, 1);
     }
   }
 
