@@ -294,7 +294,8 @@
 					<button
 						class="node absolute aspect-square animate-pulse rounded-full border-2 border-slate-300 bg-gray-600 p-1"
 						data-idx={node.idx}
-						style="top: {node.y}px; left: {node.x}px; height: {node.h}px; z-index: 4;"
+						style="top: {node.y}px; left: {node.x -
+							node.h * 0.25}px; height: {node.h}px; z-index: 4;"
 						onclick={() => {
 							console.log(`(${node.idx})`);
 							socket.emit(
@@ -316,7 +317,7 @@
 						? 'settlement'
 						: 'city'}"
 					data-idx={node.idx}
-					style="top: {node.y - node.h * 1.5}px; left: {node.x - node.h * 1.3}px; height: {node.h *
+					style="top: {node.y - node.h * 1.5}px; left: {node.x - node.h * 1.4}px; height: {node.h *
 						4}px; background-color:{getColorFromPlayerName(node.building.owner)}; z-index: 4;"
 					onclick={() => {
 						if (selectedBuilding !== 'city') {
