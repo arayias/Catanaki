@@ -235,57 +235,54 @@ export class Game {
   }
 
   findLongestRoad(player: Player) {
-    let roads = player.buildings.filter((b) => b.buildingType === "Road");
+    const roads = player.buildings.filter((b) => b.buildingType === "Road");
     if (roads.length < this.longestRoad) return;
 
-    const hasRoadBetween = (from: string, to: string): boolean => {
-      const roadKey1 = `${from}-${to}`;
-      const roadKey2 = `${to}-${from}`;
-      return roads.some(
-        (road) => road.location === roadKey1 || road.location === roadKey2
-      );
-    };
+    const adjacencyMap = new Map<string, Set<string>>();
 
-    let reachableIntersections = new Set<string>();
     roads.forEach((road) => {
       const [from, to] = road.location.split("-");
-      reachableIntersections.add(from);
-      reachableIntersections.add(to);
+      if (!adjacencyMap.has(from)) adjacencyMap.set(from, new Set());
+      if (!adjacencyMap.has(to)) adjacencyMap.set(to, new Set());
+      adjacencyMap.get(from)!.add(to);
+      adjacencyMap.get(to)!.add(from);
     });
 
     let maxLength = 0;
-    const intersections = Array.from(reachableIntersections);
+    const visited = new Set<string>();
 
-    for (let i = 0; i < intersections.length; i++) {
-      for (let j = i + 1; j < intersections.length; j++) {
-        const start = intersections[i];
-        const end = intersections[j];
+    const findLongestPath = (
+      current: string,
+      length: number,
+      prevNode: string | null
+    ): number => {
+      let maxPathLength = length;
 
-        let seen = new Set<string>();
-        let maxPathLength = 0;
+      if (visited.has(current)) return length;
+      visited.add(current);
 
-        const dfs = (current: string, length: number) => {
-          if (current === end) {
-            maxPathLength = Math.max(maxPathLength, length);
-            return;
-          }
+      const neighbors = adjacencyMap.get(current);
+      if (!neighbors) return length;
 
-          const node = this.board.nodes.get(current);
-          if (!node) return;
+      for (const next of neighbors) {
+        if (next === prevNode) continue;
 
-          for (let next of node.adjacentNodes) {
-            if (!seen.has(next) && hasRoadBetween(current, next)) {
-              seen.add(next);
-              dfs(next, length + 1);
-              seen.delete(next);
-            }
-          }
-        };
+        const node = this.board.nodes.get(next);
+        if (node?.building && node.building.owner !== player.name) continue;
 
-        seen.add(start);
-        dfs(start, 0);
-        maxLength = Math.max(maxLength, maxPathLength);
+        const pathLength = findLongestPath(next, length + 1, current);
+        maxPathLength = Math.max(maxPathLength, pathLength);
       }
+
+      return maxPathLength;
+    };
+
+    for (const start of adjacencyMap.keys()) {
+      const node = this.board.nodes.get(start);
+      if (node?.building && node.building.owner !== player.name) continue;
+
+      const length = findLongestPath(start, 0, null);
+      maxLength = Math.max(maxLength, length);
     }
 
     console.log(`Longest road for ${player.name} is ${maxLength}`);
