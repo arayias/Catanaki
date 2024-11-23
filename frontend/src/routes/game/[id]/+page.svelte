@@ -75,6 +75,14 @@
 				console.log('game update', data);
 				game = data;
 				game.roll = data.roll;
+				if (game.currentPlayer === uniqueName) {
+					if (game.currentGameState === 'initialPlacementSettlement') {
+						selectedBuilding = 'settlement';
+					}
+					if (game.currentGameState === 'initialPlacementRoad') {
+						selectedBuilding = 'road';
+					}
+				}
 				if (game.winner) {
 					// drop the game
 					socket!.disconnect();
@@ -128,6 +136,7 @@
 			{/if}
 			<Board {game} {socket} {uniqueName} {selectedBuilding} />
 			<div class="flex flex-col items-center justify-center bg-slate-200 p-5">
+				<div>state: {game.currentGameState}</div>
 				<div>
 					<!-- {connectedPlayers} -->
 					{#if connected}
@@ -180,10 +189,12 @@
 				{/if}
 				{#each game.players as player}
 					<div
-						class="mt-1 flex w-full items-center justify-center rounded-lg p-2 {player.name ===
+						class="mt-1 flex w-full items-center justify-center rounded-lg border-r-[2rem] p-2 {player.name ===
 						game.currentPlayer
 							? 'bg-blue-500'
-							: 'bg-slate-300'}"
+							: 'bg-slate-300'}
+						"
+						style="border-color: {player.color}"
 					>
 						{player.name} ({player.score})
 						{#if player.name === game.longestRoadPlayer?.name}

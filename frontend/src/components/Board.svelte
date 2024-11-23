@@ -10,6 +10,7 @@
 	let name = $derived(data.uniqueName);
 	let socket: Socket = data.socket;
 	let selectedBuilding = $derived(data.selectedBuilding);
+	let currentGameState = $derived(data.game.currentGameState);
 
 	let brickSvg = '../brick.svg';
 	let stoneSvg = '../stone.svg';
@@ -18,6 +19,7 @@
 	let sheepSvg = '../sheep.svg';
 	let citySvg = '../city.svg';
 	let roadSvg = '../road.svg';
+	let desertSvg = '../desert.svg';
 	let settlementSvg = '../settlement.svg';
 
 	let hexagons: {
@@ -26,8 +28,10 @@
 		x: number;
 		y: number;
 		height: number;
+		width: number;
 		type: string;
 		roll: string;
+		hasRobber: boolean;
 	}[] = $state([]);
 
 	let nodes: {
@@ -52,6 +56,8 @@
 				return '#d4c02f';
 			case 'Sheep':
 				return '#93b731';
+			case 'Desert':
+				return '#c79532';
 			default:
 				return 'lightgray';
 		}
@@ -69,6 +75,8 @@
 				return wheatSvg;
 			case 'Sheep':
 				return sheepSvg;
+			case 'Desert':
+				return desertSvg;
 			default:
 				return '';
 		}
@@ -124,14 +132,17 @@
 				if (!board[r][c].startsWith('null')) {
 					let type = board[r][c].split(' ')[0];
 					let roll = board[r][c].split(' ')[1];
+					let hasRobber = board[r][c].split(' ')[2];
 					hexagonData.push({
 						row: r,
 						col: c,
 						x: c * horiz + horiz_offset + margin * c,
 						y: r * vert + margin * r,
 						height: polygonHeight,
+						width: polygonWidth,
 						type: type,
-						roll: roll
+						roll: roll,
+						hasRobber: hasRobber === 'true'
 					});
 				}
 			}
@@ -255,19 +266,32 @@
 <div id="board" class="relative bg-blue-500">
 	<div class="">
 		{#each hexagons as hex}
+			{@const isDesert = hex.type === 'Desert'}
 			<button
-				class="polygon pointer-events-none absolute"
+				class="polygon {currentGameState !== 'robber' ? 'pointer-events-none' : ''} absolute"
 				data-row={hex.row}
 				data-col={hex.col}
 				data-roll={hex.roll}
 				style="height: {hex.height}px; top: {hex.y}px; left: {hex.x}px; background-color: {getColorFromType(
 					hex.type
 				)};"
-				onclick={() => console.log(`(${hex.row}, ${hex.col})`)}
+				onclick={() => {
+					console.log(`(${hex.row}, ${hex.col})`);
+					if (currentGameState === 'robber') {
+						socket.emit(
+							'game command',
+							JSON.stringify({
+								type: 'robber',
+								sender: data.uniqueName,
+								location: `${hex.row},${hex.col}`
+							})
+						);
+					}
+				}}
 				onkeydown={(e) => e.key === 'Enter' && console.log(`(${hex.row}, ${hex.col})`)}
 				aria-label={`Hexagon at row ${hex.row}, column ${hex.col}`}
 			>
-				<div class="flex flex-col items-center justify-center">
+				<div class="relative flex flex-col items-center justify-center">
 					<div>
 						<img
 							class="aspect-square"
@@ -275,16 +299,35 @@
 							alt={hex.type}
 							style="height: {hex.height / 4}px "
 						/>
+						{#if hex.hasRobber}
+							<img
+								src="/robber.svg"
+								alt="Robber"
+								class="absolute top-0"
+								style="left: {hex.width / 10}px; top: 0px; height: {hex.height /
+									4}px; width:{hex.height / 4}px;"
+							/>
+						{:else if currentGameState === 'robber'}
+							<!-- add clickable indicator instead of img -->
+							<div
+								alt="Robber"
+								class="absolute top-0 animate-pulse rounded-full bg-slate-200"
+								style="left: {hex.width / 10}px; top: 0px; height: {hex.height /
+									6}px; width:{hex.height / 6}px;"
+							></div>
+						{/if}
 					</div>
-					<div
-						class="flex aspect-square flex-col items-center justify-center rounded-full bg-slate-200 p-0.5"
-					>
-						<span
-							class={`text-sm font-bold ${hex.roll === '6' || hex.roll === '8' ? 'text-red-600' : 'text-blue-950'}`}
+					{#if !isDesert}
+						<div
+							class="flex aspect-square flex-col items-center justify-center rounded-full bg-slate-200 p-0.5"
 						>
-							{hex.roll}
-						</span>
-					</div>
+							<span
+								class={`text-sm font-bold ${hex.roll === '6' || hex.roll === '8' ? 'text-red-600' : 'text-blue-950'}`}
+							>
+								{hex.roll}
+							</span>
+						</div>
+					{/if}
 				</div>
 			</button>
 		{/each}
@@ -344,7 +387,7 @@
 								/>
 							</div>
 						{/if}
-						{#if selectedBuilding === 'city' && node.building.buildingType !== 'City'}
+						{#if selectedBuilding === 'city' && node.building.buildingType !== 'City' && node.building.owner === data.game.currentPlayer}
 							<div class="absolute left-0 top-0 h-full w-full">
 								<div
 									class="aspect-square animate-pulse rounded-full bg-slate-200 p-2 opacity-10"

@@ -3,7 +3,7 @@
 @import 'tailwindcss/utilities';
 
 .entry {
-	width: 60vw;
+	width: 80vw;
 	height: 100vh;
 	display: flex;
 }
@@ -19,7 +19,7 @@
 	display: grid;
 	grid-template-columns: 80% 1fr;
 	grid-template-rows: 80% 1fr;
-	width: 70vw;
+	width: 90vw;
 	height: 100vh;
 	gap: 10px;
 }
