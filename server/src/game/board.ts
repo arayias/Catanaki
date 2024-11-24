@@ -8,18 +8,20 @@ const materials = [
 ] as const;
 
 export type Material = (typeof materials)[number];
-export type BoardPlaceHolders = "X" | "#";
+export type BoardPlaceHolders = "X" | "#" | "D";
 export type BuildingType = "Settlement" | "City" | "Road";
 
 class Tile {
   land: Material | null;
   hasRobber: boolean;
   roll: number;
+  nodes: Node[];
 
   constructor(material: Material | null = null, roll: number = 0) {
     this.land = material;
-    this.hasRobber = material === "Desert";
+    this.hasRobber = false;
     this.roll = roll;
+    this.nodes = [];
   }
 }
 
@@ -45,6 +47,7 @@ export class Board {
   spawnableMaterials: Material[];
   nodes: Map<string, Node>;
   edges: Map<string, Edge>;
+  robberTile: Tile | null;
 
   constructor() {
     this.spawnableMaterials = materials.slice(0, materials.length - 1);
@@ -57,6 +60,7 @@ export class Board {
 
   constructBoard() {
     let board: Tile[][] = [];
+    let lastDesertTile: Tile | null = null;
     for (let row = 0; row < this.inputBoard.length; row++) {
       let rowArray: Tile[] = [];
       for (let col = 0; col < this.inputBoard[row].length; col++) {
@@ -70,8 +74,23 @@ export class Board {
             ];
           roll =
             Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
+          while (roll === 7) {
+            roll =
+              Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
+          }
+        }
+        if (material === "D") {
+          chosenMaterial = "Desert";
+          roll = -1;
+          lastDesertTile = new Tile(chosenMaterial, roll);
+          rowArray.push(lastDesertTile);
+          continue;
         }
         rowArray.push(new Tile(chosenMaterial, roll));
+      }
+      if (lastDesertTile) {
+        lastDesertTile.hasRobber = true;
+        this.robberTile = lastDesertTile;
       }
       board.push(rowArray);
     }
@@ -119,6 +138,8 @@ export class Board {
       }
 
       let currentNode = this.nodes.get(key)!;
+      // also add the node to the tile
+      tile.nodes.push(currentNode);
       if (!currentNode.adjacentTiles.includes(tile)) {
         currentNode.adjacentTiles.push(tile);
       }
@@ -126,7 +147,6 @@ export class Board {
   }
 
   createEdges() {
-    console.log(JSON.stringify(this.serializeBoard()));
     for (let [nodeKey, node] of this.nodes) {
       let [row, col] = nodeKey.split(",").map((x) => parseFloat(x));
 
@@ -191,7 +211,8 @@ export class Board {
         let tile = this.board[row][col];
         let material = tile.land;
         let roll = tile.roll;
-        serializedBoard[row][col] = `${material} ${roll}`;
+        let hasRobber = tile.hasRobber;
+        serializedBoard[row][col] = `${material} ${roll} ${hasRobber}`.trim();
       }
     }
     return serializedBoard;
@@ -225,6 +246,28 @@ export class Board {
     }
     return adjacencyList;
   }
+
+  moveRobber(location: string): boolean {
+    if (this.robberTile) {
+      this.robberTile.hasRobber = false;
+    }
+    let [row, col] = location.split(",");
+    let rowNo = parseInt(row);
+    let colNo = parseInt(col);
+    this.robberTile = this.board[rowNo][colNo];
+    this.robberTile.hasRobber = true;
+    return true;
+  }
+
+  canStealFromPlayer(player: Player) {
+    if (!this?.robberTile || !this.robberTile?.nodes) return false;
+    for (let node of this.robberTile.nodes) {
+      if (node.building?.owner === player.name) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 class Building {
@@ -254,9 +297,11 @@ export class Player {
   resources: { [key in Exclude<Material, "Desert">]: number };
   buildings: Building[];
   buildingLimits: { [key in BuildingType]: number };
-  constructor(name: string, color: string) {
+  constructor(name: string) {
     this.name = name;
-    this.color = color;
+    this.color = `#${Math.floor(Math.random() * 16777215)
+      .toString(16)
+      .padStart(6, "0")}`;
     this.resources = {
       Wood: 0,
       Stone: 0,
@@ -279,6 +324,24 @@ export class Player {
 
   removeResource(material: Exclude<Material, "Desert">, amnt: number) {
     this.resources[material] -= amnt;
+  }
+
+  stealRandomResource() {
+    let resources = Object.keys(this.resources);
+    let filteredRandomResources = resources.filter(
+      (resource) => this.resources[resource as Exclude<Material, "Desert">] > 0
+    );
+    let random = Math.floor(Math.random() * filteredRandomResources.length);
+    let stolenResource = filteredRandomResources[random] as Exclude<
+      Material,
+      "Desert"
+    >;
+    this.resources[stolenResource as Exclude<Material, "Desert">] -= 1;
+    return stolenResource;
+  }
+
+  getTotalResources() {
+    return Object.values(this.resources).reduce((a, b) => a + b);
   }
 
   canAffordBuilding(buildingType: BuildingType) {
@@ -361,11 +424,11 @@ export const costDict: {
 };
 
 const exampleBoard: BoardPlaceHolders[][] = [
-  ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "X", "X", "X", "X", "X", "X"],
-  ["X", "X", "#", "X", "#", "X", "X"],
-  ["X", "X", "#", "X", "X", "X", "#"],
-  ["X", "X", "X", "X", "X", "X", "X"],
+  ["X", "X", "X", "X", "X", "X", "X", "X"],
+  ["X", "#", "X", "X", "X", "#", "X", "X"],
+  ["X", "#", "#", "#", "#", "#", "X", "X"],
+  ["X", "#", "X", "X", "X", "#", "X", "X"],
+  ["X", "#", "D", "X", "#", "#", "X", "X"],
+  ["X", "#", "#", "X", "X", "#", "#", "#"],
+  ["X", "X", "X", "X", "X", "X", "X", "X"],
 ];

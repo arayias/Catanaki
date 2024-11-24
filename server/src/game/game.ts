@@ -15,6 +15,12 @@ export class Game {
   winningThreshold: number;
   longestRoad: number;
   longestRoadPlayer: Player | null;
+  currentGameState:
+    | "initialPlacementSettlement"
+    | "initialPlacementRoad"
+    | "normal"
+    | "robber"
+    | "robberSteal";
 
   constructor() {
     this.players = [];
@@ -30,17 +36,16 @@ export class Game {
     this.winningThreshold = 10;
     this.longestRoad = 4;
     this.longestRoadPlayer = null;
+    this.currentGameState = "normal";
   }
 
   startInitialPlacement() {
-    this.initialPlacement = true;
-    this.initialPlacementTurn = 1;
+    this.currentGameState = "initialPlacementSettlement";
     this.distributeResourcesForInitialPlacement();
   }
 
-  createPlayer(name: string, color: string) {
-    const randomHexColor = Math.floor(Math.random() * 16777215).toString(16);
-    const player = new Player(name, `#${randomHexColor}`);
+  createPlayer(name: string) {
+    const player = new Player(name);
     this.addPlayer(player);
     return player;
   }
@@ -64,6 +69,10 @@ export class Game {
       return;
     }
 
+    if (this.roll === 7) {
+      this.currentGameState = "robber";
+    }
+
     this.currentPlayerIndex =
       (this.currentPlayerIndex + 1) % this.players.length;
   }
@@ -74,12 +83,16 @@ export class Game {
   }
 
   endInitialPlacement() {
-    this.initialPlacement = false;
+    this.currentGameState = "normal";
     // as part of the initial placement, the whole board
     // was populated as buildable. Now we need to restrict
     // the adjacent nodes to only be buildable if the
     // player owns the road
     this.invalidateBoard();
+    this.handleRollDiceCommand({
+      sender: this.getCurrentPlayer()!.name,
+      type: "rollDice",
+    });
   }
 
   invalidateBoard() {
@@ -98,36 +111,196 @@ export class Game {
   handleCommand(command: Command) {
     console.log(`Game received command: ${JSON.stringify(command)}`);
     let res = false;
-    switch (command.type) {
-      case "build":
-        res = this.handleBuildSettlementCommand(command as BuildSettlement);
-        this.checkWinner();
+
+    switch (this.currentGameState) {
+      case "robber":
+        res = this.handleRobberCommand(command as RobberPlaceCommand);
         break;
-      case "buildRoad":
-        res = this.handleBuildRoadCommand(command as BuildRoadCommand);
-        if (res) {
-          this.findLongestRoad(this.getCurrentPlayer()!);
-          this.checkWinner();
+
+      case "robberSteal":
+        res = this.handleRobberStealCommand(command as RobberStealCommand);
+        break;
+
+      case "initialPlacementSettlement":
+        res = this.handleInitialPlacementSettlementCommand(
+          command as BuildSettlementCommand
+        );
+        break;
+
+      case "initialPlacementRoad":
+        res = this.handleInitialPlacementRoadCommand(
+          command as BuildRoadCommand
+        );
+        break;
+
+      case "normal":
+        switch (command.type) {
+          case "build":
+            res = this.handleBuildSettlementCommand(
+              command as BuildSettlementCommand
+            );
+            this.checkWinner();
+            break;
+          case "buildRoad":
+            res = this.handleBuildRoadCommand(command as BuildRoadCommand);
+            if (res) {
+              this.findLongestRoad(this.getCurrentPlayer()!);
+              this.checkWinner();
+            }
+            break;
+          case "rollDice":
+            res = this.handleRollDiceCommand(command as RollDiceCommand);
+            break;
+          case "upgrade":
+            res = this.handleUpgradeSettlementCommand(
+              command as UpgradeSettlementCommand
+            );
+            this.checkWinner();
+            break;
+          default:
+            console.log(`Unknown command type: ${command.type}`);
         }
         break;
-      case "rollDice":
-        res = this.handleRollDiceCommand(command as RollDiceCommand);
-        break;
-      case "initialPlacement":
-        res = this.handleInitialPlacementCommand(
-          command as InitialPlacementCommand
-        );
-        break;
-      case "upgrade":
-        res = this.handleUpgradeSettlementCommand(
-          command as UpgradeSettlementCommand
-        );
-        this.checkWinner();
-        break;
+
       default:
-        console.log(`Unknown command type: ${command.type}`);
+        console.log(`Unknown game state: ${this.currentGameState}`);
     }
+
     return res;
+  }
+  handleRobberStealCommand(command: RobberStealCommand): boolean {
+    const { sender, location } = command;
+    const player = this.getCurrentPlayer();
+
+    if (!player || player.name !== sender) {
+      console.log(`It's not ${sender}'s turn.`);
+      return false;
+    }
+    const currentRobberLocation = this.board.robberTile;
+    const playerToSteal = this.board.nodes.get(location)?.building?.owner;
+
+    if (!playerToSteal || !currentRobberLocation) {
+      return false;
+    }
+
+    if (playerToSteal === player.name) {
+      console.log(`Cannot steal from yourself`);
+      return false;
+    }
+
+    let playerObject = this.players.find((p) => p.name === playerToSteal)!;
+    if (
+      playerObject.getTotalResources() > 0 &&
+      this.board.canStealFromPlayer(playerObject)
+    ) {
+      const resource = playerObject.stealRandomResource();
+      player.addResource(resource, 1);
+      console.log(`${player.name} stole ${resource} from ${playerToSteal}`);
+      this.currentGameState = "normal";
+      return true;
+    }
+    return false;
+  }
+
+  handleInitialPlacementRoadCommand(command: BuildRoadCommand): boolean {
+    const { sender, edge } = command;
+    const player = this.getCurrentPlayer();
+    if (!player || player.name !== sender) {
+      console.log(`It's not ${sender}'s turn.`);
+      return false;
+    }
+    for (let building of player.buildings) {
+      if (
+        building.buildingType === "Settlement" ||
+        (building.buildingType === "City" &&
+          this.isRoadAdjacentToBuilding(building.location, edge))
+      ) {
+        break;
+      }
+      if (building.buildingType === "Road") {
+        // should be able to extend roads
+        this.isRoadAdjacentToRoad(building.location, edge);
+        break;
+      }
+      console.log(
+        `Cannot build road at ${edge} because it is not adjacent to a settlement`
+      );
+      return false;
+    }
+
+    const roadEdge = this.board.edges.get(edge);
+    if (roadEdge && !roadEdge.road) {
+      console.log(`Building road at ${edge}`);
+      const [from, to] = edge.split("-");
+      const road = player.buildRoad(edge);
+      if (road) {
+        roadEdge.road = road;
+        console.log(`${player.name} built a road at ${edge}`);
+        // add that road to each node
+        this.board.nodes.get(from)!.playerRoads.add(player.name);
+        this.board.nodes.get(to)!.playerRoads.add(player.name);
+        console.log(
+          `Player ${player.name} added road to nodes ${from} and ${to}`
+        );
+      } else {
+        console.log(`${player.name} cannot afford to build a road`);
+        return false;
+      }
+    } else {
+      console.log(`Invalid road location: ${edge}`);
+      return false;
+    }
+    this.currentGameState = "initialPlacementSettlement";
+    this.nextTurn();
+    return true;
+  }
+  handleInitialPlacementSettlementCommand(
+    command: BuildSettlementCommand
+  ): boolean {
+    // initial placements are free
+    const { sender, location } = command;
+    const player = this.getCurrentPlayer();
+    if (!player || player.name !== sender) {
+      console.log(`It's not ${sender}'s turn.`);
+      return false;
+    }
+
+    const node = this.board.nodes.get(location);
+    if (node && !node.building) {
+      console.log(`Building free ${"Settlement"} at ${location}`);
+      const b = player.buildBuilding("Settlement", location);
+      if (b) {
+        node.building = b;
+        console.log(`${player.name} built a ${"Settlement"} at ${location}`);
+        this.restrictAdjacentNodes(location);
+        if (
+          this.turn >= this.players.length &&
+          this.turn < this.players.length * 2
+        ) {
+          this.distributeAdjacentResources(location, player);
+        }
+      } else {
+        console.log(`${player.name} cannot build a free ${"Settlement"}`);
+        return false;
+      }
+      this.currentGameState = "initialPlacementRoad";
+      return true;
+    }
+    return false;
+  }
+  handleRobberCommand(command: RobberPlaceCommand): boolean {
+    const { sender, location } = command;
+    const player = this.getCurrentPlayer();
+    if (!player || player.name !== sender) {
+      console.log(`It's not ${sender}'s turn.`);
+      return false;
+    }
+    if (!location) {
+      return false;
+    }
+    this.board.moveRobber(location);
+    this.currentGameState = "robberSteal";
+    return true;
   }
 
   checkWinner() {
@@ -139,7 +312,7 @@ export class Game {
     }
   }
 
-  handleBuildSettlementCommand(command: BuildSettlement) {
+  handleBuildSettlementCommand(command: BuildSettlementCommand) {
     const { sender, location } = command;
     const player = this.getCurrentPlayer();
     if (!player || player.name !== sender) {
@@ -157,12 +330,6 @@ export class Game {
           node.building = b;
           console.log(`${player.name} built a ${building} at ${location}`);
           this.restrictAdjacentNodes(location);
-          if (
-            this.turn >= this.players.length &&
-            this.turn < this.players.length * 2
-          ) {
-            this.distributeAdjacentResources(location, player);
-          }
         }
       } else {
         console.log(`${player.name} cannot afford to build a ${building}`);
@@ -206,6 +373,7 @@ export class Game {
       if (building.buildingType === "Road") {
         // should be able to extend roads
         this.isRoadAdjacentToRoad(building.location, edge);
+        break;
       }
       console.log(
         `Cannot build road at ${edge} because it is not adjacent to a settlement`
@@ -320,53 +488,6 @@ export class Game {
 
     this.distributeResources(this.roll);
     this.nextTurn();
-    return true;
-  }
-
-  handleInitialPlacementCommand(command: InitialPlacementCommand) {
-    const { sender, settlementLocation, roadLocation } = command;
-    const player = this.getCurrentPlayer();
-    if (!player || player.name !== sender) {
-      console.log(`It's not ${sender}'s turn.`);
-      return false;
-    }
-
-    if (this.initialPlacementTurn === 1) {
-      if (player.canAffordBuilding("Settlement")) {
-        const node = this.board.nodes.get(settlementLocation);
-        if (node && !node.building) {
-          const b = player.buildBuilding("Settlement", settlementLocation);
-          if (b) {
-            node.building = b;
-            console.log(
-              `${player.name} built a Settlement at ${settlementLocation}`
-            );
-          }
-        }
-      } else {
-        console.log(`${player.name} cannot afford to build a Settlement`);
-        return false;
-      }
-      this.initialPlacementTurn = 2;
-    } else if (this.initialPlacementTurn === 2) {
-      if (player.canAffordBuilding("Road")) {
-        const edge = this.board.edges.get(roadLocation);
-        if (edge && !edge.road) {
-          const road = player.buildRoad(roadLocation);
-          if (road) {
-            edge.road = road;
-            console.log(`${player.name} built a Road at ${roadLocation}`);
-          }
-        }
-      } else {
-        console.log(`${player.name} cannot afford to build a Road`);
-        return false;
-      }
-      this.nextTurn();
-      if (this.currentPlayerIndex === 0) {
-        this.initialPlacement = false;
-      }
-    }
     return true;
   }
 
@@ -515,7 +636,7 @@ export class Game {
     if (!player) {
       return;
     }
-    if (this.initialPlacement) {
+    if (this.currentGameState === "initialPlacementSettlement") {
       let serializedNodes = this.board.serializeNodes();
       return Object.keys(serializedNodes).filter(
         (key) => serializedNodes[key] === true
@@ -524,10 +645,8 @@ export class Game {
     let validBuildingLocations = new Set();
     for (let building of player.buildings) {
       if (building.buildingType === "Road") {
-        // Get the nodes connected by this road
         const [node1, node2] = building.location.split("-");
 
-        // Check each node connected to the road
         for (const node of [node1, node2]) {
           if (
             !validBuildingLocations.has(node) &&
@@ -545,6 +664,7 @@ export class Game {
     return {
       id: this.id,
       turn: this.turn,
+      currentGameState: this.currentGameState,
       hasStarted: this.hasStarted,
       currentPlayer: this.getCurrentPlayer()?.name,
       board: this.board.serializeBoard(),
@@ -578,7 +698,7 @@ type Command = {
   sender: string;
 };
 
-type BuildSettlement = Command & {
+type BuildSettlementCommand = Command & {
   type: "build";
   location: string;
 };
@@ -592,13 +712,17 @@ type RollDiceCommand = Command & {
   type: "rollDice";
 };
 
-type InitialPlacementCommand = Command & {
-  type: "initialPlacement";
-  settlementLocation: string;
-  roadLocation: string;
-};
-
 type UpgradeSettlementCommand = Command & {
   type: "upgrade";
+  location: string;
+};
+
+type RobberPlaceCommand = Command & {
+  type: "robber";
+  location: string;
+};
+
+type RobberStealCommand = Command & {
+  type: "robberSteal";
   location: string;
 };

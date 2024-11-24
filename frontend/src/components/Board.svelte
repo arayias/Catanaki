@@ -37,7 +37,7 @@
 	let nodes: {
 		x: number;
 		y: number;
-		building: string;
+		building: string | boolean;
 		idx: string;
 		h: number;
 	}[] = $state([]);
@@ -184,14 +184,14 @@
 		nodeMap = currentMap;
 		return nodes;
 	}
-	function getRoadOwner(from, to) {
+	function getRoadOwner(from: string, to: unknown) {
 		// Normalize road format to match both directions
 		const roadKey1 = `${from}-${to}`;
 		const roadKey2 = `${to}-${from}`;
 
 		for (const player of players) {
 			const hasRoad = player.buildings.some(
-				(building) =>
+				(building: { type: string; location: string }) =>
 					building.type === 'Road' &&
 					(building.location === roadKey1 || building.location === roadKey2)
 			);
@@ -203,14 +203,14 @@
 		return 'black'; // Default color if no player owns the road
 	}
 
-	function isRoadOwned(from, to) {
+	function isRoadOwned(from: string, to: unknown) {
 		// Normalize road format to match both directions
 		const roadKey1 = `${from}-${to}`;
 		const roadKey2 = `${to}-${from}`;
 
-		return players.some((player) =>
+		return players.some((player: { buildings: any[] }) =>
 			player.buildings.some(
-				(building) =>
+				(building: { type: string; location: string }) =>
 					building.type === 'Road' &&
 					(building.location === roadKey1 || building.location === roadKey2)
 			)
@@ -250,7 +250,7 @@
 		return current;
 	});
 
-	function isAllowedRoad(parent, node) {
+	function isAllowedRoad(parent: string, node: unknown) {
 		return allowedRoads.some(
 			(road) => (road[0] === parent && road[1] === node) || (road[0] === node && road[1] === parent)
 		);
@@ -259,6 +259,7 @@
 	$effect(() => {
 		positionHexagons();
 		window.addEventListener('resize', positionHexagons);
+		$inspect(nodes);
 		return () => window.removeEventListener('resize', positionHexagons);
 	});
 </script>
@@ -332,7 +333,7 @@
 			</button>
 		{/each}
 		{#each nodes as node}
-			{#if node.building == false || node.building === 'never' || node.building === true}
+			{#if node.building == false || node.building === 'never' || node.building == true}
 				{#if validPossibleBuildingLocations?.includes(node.idx) && selectedBuilding === 'settlement'}
 					<button
 						class="node absolute aspect-square animate-pulse rounded-full border-2 border-slate-300 bg-gray-600 p-1"
@@ -353,7 +354,8 @@
 						}}
 					/>
 				{/if}
-			{:else if node.building != true}
+			{:else}
+				<!-- we have a building here  -->
 				<button
 					class="node absolute aspect-square rounded-full border-2 border-slate-800 p-1 {node
 						.building.buildingType === 'Settlement'
@@ -363,18 +365,29 @@
 					style="top: {node.y - node.h * 1.5}px; left: {node.x - node.h * 1.4}px; height: {node.h *
 						4}px; background-color:{getColorFromPlayerName(node.building.owner)}; z-index: 4;"
 					onclick={() => {
-						if (selectedBuilding !== 'city') {
-							return;
+						if (currentGameState == 'robberSteal') {
+							socket.emit(
+								'game command',
+								JSON.stringify({
+									type: 'robberSteal',
+									location: node.idx,
+									sender: data.uniqueName
+								})
+							);
+						} else {
+							if (selectedBuilding !== 'city') {
+								return;
+							}
+							console.log(`(${node.idx})`);
+							socket.emit(
+								'game command',
+								JSON.stringify({
+									type: 'upgrade',
+									location: node.idx,
+									sender: data.uniqueName
+								})
+							);
 						}
-						console.log(`(${node.idx})`);
-						socket.emit(
-							'game command',
-							JSON.stringify({
-								type: 'upgrade',
-								location: node.idx,
-								sender: data.uniqueName
-							})
-						);
 					}}
 				>
 					<div class="relative flex flex-col items-center justify-center">
@@ -387,7 +400,14 @@
 								/>
 							</div>
 						{/if}
-						{#if selectedBuilding === 'city' && node.building.buildingType !== 'City' && node.building.owner === data.game.currentPlayer}
+
+						{#if currentGameState == 'robberSteal' && node.building.owner !== data.game.currentPlayer}
+							<div class="absolute left-0 top-0 h-full w-full">
+								<div
+									class="aspect-square animate-pulse rounded-full bg-slate-200 p-2 opacity-10"
+								></div>
+							</div>
+						{:else if selectedBuilding === 'city' && node.building.buildingType !== 'City' && node.building.owner === data.game.currentPlayer}
 							<div class="absolute left-0 top-0 h-full w-full">
 								<div
 									class="aspect-square animate-pulse rounded-full bg-slate-200 p-2 opacity-10"
