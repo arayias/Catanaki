@@ -4,6 +4,7 @@
 	import Board from '../../../components/Board.svelte';
 	import { io, Socket } from 'socket.io-client';
 	import { onMount } from 'svelte';
+	import { scale } from 'svelte/transition';
 
 	const id = $page.params.id;
 	let connected = $state(false);
@@ -119,7 +120,7 @@
 	{#snippet materialCard(material: string, amount: number, increment: boolean)}
 		<button
 			class="flex w-[10%] flex-col items-center space-y-2 rounded-lg bg-slate-400 p-1
-		hover:bg-blue-500"
+    transition-transform hover:bg-blue-500 active:scale-95"
 			onclick={() => {
 				if (increment) {
 					deselectedMaterials[material] = Math.min(deselectedMaterials[material] + 1, amount);
@@ -129,7 +130,11 @@
 			}}
 		>
 			<img src={getSvgFromResourceType(material)} alt={material} class="h-4 w-4" />
-			<span>{amount}</span>
+			{#key deselectedMaterials[material]}
+				<span in:scale={{ duration: 500, start: 0.8 }} class="font-bold">
+					{amount}
+				</span>
+			{/key}
 		</button>
 	{/snippet}
 
@@ -225,15 +230,16 @@
 			</div>
 			<!--  bottom row -->
 			{#if game.hasStarted}
-				{@const shouldDiscard = game.waitingForDiscard?.includes(uniqueName)}
+				{@const shouldDiscard =
+					game.waitingForDiscard && game.waitingForDiscard.hasOwnProperty(uniqueName)}
 				<div class="flex flex-row bg-slate-200">
 					<div class="flex flex-grow flex-col">
-						<div class="flex flex-row items-center justify-center gap-5 p-3">
+						<div class="flex flex-row gap-5 p-3">
 							{#each allowedMaterials as material}
 								{@render materialCard(material, deselectedMaterials[material], false)}
 							{/each}
 						</div>
-						<div class="flex flex-row items-center justify-center gap-5 p-3">
+						<div class="flex flex-row gap-5 p-3">
 							{#each allowedMaterials as material}
 								{@const player = game.players.find((p) => p.name === uniqueName)}
 								{@render materialCard(material, player?.resources[material], true)}
@@ -276,13 +282,17 @@
 							};
 						}}
 					>
-						{game.currentGameState == 'robberSteal' ? 'Discard' : 'Trade'}
+						{game.currentGameState == 'discardResouces' ? 'Discard' : 'Trade'}
 					</button>
 				</div>
 				{#if game.currentPlayer === uniqueName}
+					{@const canEndTurn = game.currentGameState == 'normal'}
 					<button
-						class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
+						class="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700 {canEndTurn
+							? ''
+							: 'bg-gray-500'}"
 						onclick={() => {
+							if (!canEndTurn) return;
 							socket!.emit(
 								'game command',
 								JSON.stringify({ type: 'rollDice', sender: uniqueName })
@@ -290,7 +300,7 @@
 							selectedBuilding = '';
 						}}
 					>
-						End turn
+						End Turn
 					</button>
 				{:else}
 					<button class="rounded bg-yellow-500 px-4 py-2 font-bold text-white">
