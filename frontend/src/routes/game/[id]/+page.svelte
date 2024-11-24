@@ -10,7 +10,17 @@
 	let uniqueName = $state('');
 	let selectedBuilding = $state('');
 	let allowedBuildings = ['settlement', 'city', 'road'];
+	type Building = 'settlement' | 'city' | 'road';
+	type Material = 'Wood' | 'Brick' | 'Wheat' | 'Sheep' | 'Stone';
 	let allowedMaterials = ['Wood', 'Brick', 'Wheat', 'Sheep', 'Stone'];
+
+	let deselectedMaterials: Record<Material, number> = $state({
+		Wood: 0,
+		Brick: 0,
+		Wheat: 0,
+		Sheep: 0,
+		Stone: 0
+	});
 
 	const getGame = async () => {
 		const response = await axios.get(`http://localhost:3001/game/${id}`);
@@ -106,14 +116,21 @@
 </script>
 
 <div class="entry">
-	{#snippet materialCard(material: string, amount: number)}
-		<div
+	{#snippet materialCard(material: string, amount: number, increment: boolean)}
+		<button
 			class="flex w-[10%] flex-col items-center space-y-2 rounded-lg bg-slate-400 p-1
 		hover:bg-blue-500"
+			onclick={() => {
+				if (increment) {
+					deselectedMaterials[material] = Math.min(deselectedMaterials[material] + 1, amount);
+				} else {
+					deselectedMaterials[material] = Math.max(deselectedMaterials[material] - 1, 0);
+				}
+			}}
 		>
 			<img src={getSvgFromResourceType(material)} alt={material} class="h-4 w-4" />
 			<span>{amount}</span>
-		</div>
+		</button>
 	{/snippet}
 
 	{#await game}
@@ -157,9 +174,11 @@
 					</button>
 				{/if}
 				{#if game.hasStarted}
-					<p class="text-3xl font-bold">
-						🎲 {game.roll}
-					</p>
+					{#if game.roll > 0}
+						<p class="text-3xl font-bold">
+							🎲 {game.roll}
+						</p>
+					{/if}
 
 					{#if game.currentPlayer === uniqueName}
 						<div class="flex flex-col items-center justify-center bg-slate-200 p-5">
@@ -201,52 +220,64 @@
 							<img src="/road.svg" alt="Road" class="h-4 w-4" />
 							{game.longestRoad}
 						{/if}
-						<!-- <div class="text-sm font-bold text-black">
-							Materials
-							<div class="flex space-x-2">
-								{#if player.resources.Wood > 0}
-									<div class="flex items-center">
-										{player.resources.Wood}
-										<img src="/wood.svg" alt="Wood" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Brick > 0}
-									<div class="flex items-center">
-										{player.resources.Brick}
-										<img src="/brick.svg" alt="Brick" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Wheat > 0}
-									<div class="flex items-center">
-										{player.resources.Wheat}
-										<img src="/wheat.svg" alt="Wheat" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Sheep > 0}
-									<div class="flex items-center">
-										{player.resources.Sheep}
-										<img src="/sheep.svg" alt="Sheep" class="h-4 w-4" />
-									</div>
-								{/if}
-								{#if player.resources.Stone > 0}
-									<div class="flex items-center">
-										{player.resources.Stone}
-										<img src="/stone.svg" alt="Stone" class="h-4 w-4" />
-									</div>
-								{/if}
-							</div>
-						</div> -->
 					</div>
 				{/each}
 			</div>
 			<!--  bottom row -->
 			{#if game.hasStarted}
-				<div class="flex items-center justify-center gap-5 bg-slate-200 p-5">
-					<div class="flex items-center justify-center"></div>
-					{#each allowedMaterials as material}
-						{@const player = game.players.find((p) => p.name === uniqueName)}
-						{@render materialCard(material, player?.resources[material])}
-					{/each}
+				{@const shouldDiscard = game.waitingForDiscard?.includes(uniqueName)}
+				<div class="flex flex-row bg-slate-200">
+					<div class="flex flex-grow flex-col">
+						<div class="flex flex-row items-center justify-center gap-5 p-3">
+							{#each allowedMaterials as material}
+								{@render materialCard(material, deselectedMaterials[material], false)}
+							{/each}
+						</div>
+						<div class="flex flex-row items-center justify-center gap-5 p-3">
+							{#each allowedMaterials as material}
+								{@const player = game.players.find((p) => p.name === uniqueName)}
+								{@render materialCard(material, player?.resources[material], true)}
+							{/each}
+						</div>
+					</div>
+					<button
+						class="rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-700"
+						onclick={() => {
+							let amountToDiscard = Object.values(deselectedMaterials).reduce(
+								(acc, curr) => acc + curr,
+								0
+							);
+
+							let expected = game.waitingForDiscard?.[uniqueName] ?? 0;
+
+							console.log('amountToDiscard', amountToDiscard);
+							console.log('expected', expected);
+
+							if (amountToDiscard !== expected) {
+								alert(`You need to discard ${expected} resources`);
+								return;
+							}
+
+							socket!.emit(
+								'game command',
+								JSON.stringify({
+									type: 'discardResources',
+									sender: uniqueName,
+									resources: deselectedMaterials
+								})
+							);
+							// clear deselected materials
+							deselectedMaterials = {
+								Wood: 0,
+								Brick: 0,
+								Wheat: 0,
+								Sheep: 0,
+								Stone: 0
+							};
+						}}
+					>
+						{game.currentGameState == 'robberSteal' ? 'Discard' : 'Trade'}
+					</button>
 				</div>
 				{#if game.currentPlayer === uniqueName}
 					<button

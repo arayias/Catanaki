@@ -8,6 +8,8 @@ const materials = [
 ] as const;
 
 export type Material = (typeof materials)[number];
+export type Resource = Exclude<Material, "Desert">;
+
 export type BoardPlaceHolders = "X" | "#" | "D";
 export type BuildingType = "Settlement" | "City" | "Road";
 
@@ -294,7 +296,7 @@ export class Player {
   name: string;
   color: string;
   score: number;
-  resources: { [key in Exclude<Material, "Desert">]: number };
+  resources: { [key in Resource]: number };
   buildings: Building[];
   buildingLimits: { [key in BuildingType]: number };
   constructor(name: string) {
@@ -318,25 +320,25 @@ export class Player {
     this.score = 0;
   }
 
-  addResource(material: Exclude<Material, "Desert">, amnt: number) {
+  addResource(material: Resource, amnt: number) {
     this.resources[material] += amnt;
   }
 
-  removeResource(material: Exclude<Material, "Desert">, amnt: number) {
+  removeResource(material: Resource, amnt: number) {
     this.resources[material] -= amnt;
   }
 
   stealRandomResource() {
     let resources = Object.keys(this.resources);
     let filteredRandomResources = resources.filter(
-      (resource) => this.resources[resource as Exclude<Material, "Desert">] > 0
+      (resource) => this.resources[resource as Resource] > 0
     );
     let random = Math.floor(Math.random() * filteredRandomResources.length);
     let stolenResource = filteredRandomResources[random] as Exclude<
       Material,
       "Desert"
     >;
-    this.resources[stolenResource as Exclude<Material, "Desert">] -= 1;
+    this.resources[stolenResource as Resource] -= 1;
     return stolenResource;
   }
 
@@ -348,8 +350,7 @@ export class Player {
     let cost = costDict[buildingType];
     for (let material in cost) {
       if (
-        this.resources[material as Exclude<Material, "Desert">] <
-        (cost[material as Material] ?? 0)
+        this.resources[material as Resource] < (cost[material as Material] ?? 0)
       ) {
         return false;
       }
@@ -366,7 +367,7 @@ export class Player {
       this.buildings.push(building);
       for (let material in costDict[buildingType]) {
         this.removeResource(
-          material as Exclude<Material, "Desert">,
+          material as Resource,
           costDict[buildingType][material as Material] ?? 0
         );
       }
@@ -388,7 +389,7 @@ export class Player {
       this.buildings.push(building);
       for (let material in costDict[buildingType]) {
         this.removeResource(
-          material as Exclude<Material, "Desert">,
+          material as Resource,
           costDict[buildingType][material as Material] ?? 0
         );
       }

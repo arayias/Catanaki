@@ -1,5 +1,5 @@
 import { Board, costDict, Player } from "./board";
-import type { BuildingType, Material } from "./board";
+import type { BuildingType, Material, Resource } from "./board";
 
 export class Game {
   id: string;
@@ -15,12 +15,14 @@ export class Game {
   winningThreshold: number;
   longestRoad: number;
   longestRoadPlayer: Player | null;
+  waitingForDiscard: Player[] | null;
   currentGameState:
     | "initialPlacementSettlement"
     | "initialPlacementRoad"
     | "normal"
     | "robber"
-    | "robberSteal";
+    | "robberSteal"
+    | "discardResouces";
 
   constructor() {
     this.players = [];
@@ -70,7 +72,18 @@ export class Game {
     }
 
     if (this.roll === 7) {
-      this.currentGameState = "robber";
+      // robber flow discard (if applicable) -> move -> steal (if applicable)
+      let discardingPlayers = this.players.filter(
+        (player) => player.getTotalResources() > 7
+      );
+
+      if (discardingPlayers.length > 0) {
+        console.log(`Players need to discard resources`);
+        this.currentGameState = "discardResouces";
+        this.waitingForDiscard = discardingPlayers;
+      } else {
+        this.currentGameState = "robber";
+      }
     }
 
     this.currentPlayerIndex =
@@ -115,6 +128,11 @@ export class Game {
     switch (this.currentGameState) {
       case "robber":
         res = this.handleRobberCommand(command as RobberPlaceCommand);
+        break;
+      case "discardResouces":
+        res = this.handleDiscardResourcesCommand(
+          command as DiscardResourcesCommand
+        );
         break;
 
       case "robberSteal":
@@ -168,6 +186,56 @@ export class Game {
 
     return res;
   }
+
+  handleDiscardResourcesCommand(command: DiscardResourcesCommand): boolean {
+    const { sender, resources } = command;
+
+    const player = this.players.find((p) => p.name === sender);
+    console.log(player);
+
+    if (
+      !this.waitingForDiscard ||
+      !player ||
+      !this.waitingForDiscard.includes(player)
+    ) {
+      console.log(`player not found or not in waiting list`);
+      return false;
+    }
+
+    let requestToRemove = Object.values(resources).reduce(
+      (acc, val) => acc + val,
+      0
+    );
+    let actualToRemove = Math.floor(player.getTotalResources() / 2);
+    if (requestToRemove !== actualToRemove) {
+      console.log(
+        `Invalid number of resources to discard got ${requestToRemove} expected ${actualToRemove}`
+      );
+      return false;
+    }
+    for (let [resource, count] of Object.entries(resources)) {
+      if (count > player.resources[resource]) {
+        console.log(`Cannot discard more ${resource} than you have`);
+        return false;
+      }
+    }
+    // checks done we can now remove the resources
+    for (let [resource, count] of Object.entries(resources)) {
+      player.removeResource(resource as Resource, count);
+    }
+    // remove the player from the waiting list
+    this.waitingForDiscard = this.waitingForDiscard.filter(
+      (p) => p.name !== player.name
+    );
+
+    if (this.waitingForDiscard.length === 0) {
+      this.currentGameState = "robber";
+    }
+
+    console.log(`${player.name} discarded resources`);
+    return true;
+  }
+
   handleRobberStealCommand(command: RobberStealCommand): boolean {
     const { sender, location } = command;
     const player = this.getCurrentPlayer();
@@ -254,6 +322,7 @@ export class Game {
     this.nextTurn();
     return true;
   }
+
   handleInitialPlacementSettlementCommand(
     command: BuildSettlementCommand
   ): boolean {
@@ -288,6 +357,7 @@ export class Game {
     }
     return false;
   }
+
   handleRobberCommand(command: RobberPlaceCommand): boolean {
     const { sender, location } = command;
     const player = this.getCurrentPlayer();
@@ -299,7 +369,29 @@ export class Game {
       return false;
     }
     this.board.moveRobber(location);
-    this.currentGameState = "robberSteal";
+    let availableNodesToSteal = this.board.robberTile?.nodes;
+    if (!availableNodesToSteal) {
+      return false;
+    }
+    for (let node of availableNodesToSteal) {
+      let owner = node.building?.owner;
+      if (owner) {
+        if (owner === player.name) {
+          continue;
+        }
+        // check if they have any resources to steal
+        let playerToSteal = this.players.find((p) => p.name === owner);
+        if (
+          playerToSteal &&
+          playerToSteal.getTotalResources() > 0 &&
+          this.board.canStealFromPlayer(playerToSteal)
+        ) {
+          this.currentGameState = "robberSteal";
+          return true;
+        }
+      }
+    }
+    this.currentGameState = "normal";
     return true;
   }
 
@@ -689,6 +781,12 @@ export class Game {
       winner: this.winner,
       longestRoad: this.longestRoad,
       longestRoadPlayer: this.longestRoadPlayer,
+      waitingForDiscard: this.waitingForDiscard
+        ? this.waitingForDiscard.reduce((acc, p) => {
+            acc[p.name] = Math.floor(p.getTotalResources() / 2);
+            return acc;
+          }, {})
+        : null,
     };
   }
 }
@@ -725,4 +823,9 @@ type RobberPlaceCommand = Command & {
 type RobberStealCommand = Command & {
   type: "robberSteal";
   location: string;
+};
+
+type DiscardResourcesCommand = Command & {
+  type: "discardResources";
+  resources: Record<Resource, number>;
 };

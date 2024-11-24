@@ -259,7 +259,7 @@
 	$effect(() => {
 		positionHexagons();
 		window.addEventListener('resize', positionHexagons);
-		$inspect(nodes);
+		// $inspect(nodes);
 		return () => window.removeEventListener('resize', positionHexagons);
 	});
 </script>
