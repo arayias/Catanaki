@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const port = 3001;
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "https://catanaki.pages.dev/"],
+    origin: ["http://localhost:5173", "https://catanaki.pages.dev"],
     methods: ["GET", "POST"],
   },
 });
