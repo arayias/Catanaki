@@ -2,8 +2,8 @@ import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
 import type { Application } from "express";
-import { logger } from "./src/middleware/logger";
-import { Game } from "./src/game/game";
+import { logger } from "./middleware/logger";
+import { Game } from "./game/game";
 import { Server } from "socket.io";
 import http from "http";
 
@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const port = 3001;
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://catanaki.pages.dev/"],
     methods: ["GET", "POST"],
   },
 });
@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
         );
         return;
       }
-      game.createPlayer(name, name.slice(0, 1).toUpperCase());
+      game.createPlayer(name);
     });
 
     socket.on("start game", () => {
