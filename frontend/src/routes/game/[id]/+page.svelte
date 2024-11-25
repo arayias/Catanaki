@@ -6,6 +6,9 @@
 	import { onMount } from 'svelte';
 	import { scale } from 'svelte/transition';
 
+	// const base_url = 'http://localhost:3001';
+	const base_url = 'https://catanaki-production.up.railway.app';
+
 	const id = $page.params.id;
 	let connected = $state(false);
 	let uniqueName = $state('');
@@ -24,7 +27,7 @@
 	});
 
 	const getGame = async () => {
-		const response = await axios.get(`http://localhost:3001/game/${id}`);
+		const response = await axios.get(`${base_url}/game/${id}`);
 		return response.data;
 	};
 
@@ -70,7 +73,7 @@
 			localStorage.setItem('unique_name', name);
 			uniqueName = name;
 		}
-		socket = io('http://localhost:3001');
+		socket = io(base_url);
 		if (socket) {
 			socket.on('connect', () => {
 				connected = true;

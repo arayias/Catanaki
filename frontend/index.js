@@ -8,7 +8,9 @@ const sampleInput = [
 	['null', 'null', '#', '#', '#', 'null', 'null'],
 	['null', 'null', 'null', 'null', 'null', 'null', 'null']
 ];
-const game = await fetch('http://localhost:3000/game', {
+// const base_url = 'https://catanaki-production.up.railway.app/';
+const base_url = 'http://localhost:3000/';
+const game = await fetch(`${base_url}/game`, {
 	method: 'POST',
 	headers: {
 		'Content-Type': 'application/json'
@@ -17,7 +19,7 @@ const game = await fetch('http://localhost:3000/game', {
 let gameJson = await game.json();
 // gameJson.gameId = "ijmmcq";
 
-var socket = io.connect('ws://localhost:3000');
+var socket = io.connect(`ws://${base_url}`);
 socket.emit('join game', `${gameJson.gameId}`);
 socket.emit('start game', `${gameJson.gameId}`);
 

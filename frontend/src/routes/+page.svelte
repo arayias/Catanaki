@@ -3,8 +3,11 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 
+	// const base_url = 'http://localhost:3001';
+	const base_url = 'https://catanaki-production.up.railway.app';
+
 	const createGame = async () => {
-		const response = await axios.post('http://localhost:3001/game');
+		const response = await axios.post(`${base_url}/game`);
 		return response.data;
 	};
 
