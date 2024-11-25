@@ -24,7 +24,9 @@ function getGameById(gameId: string): Game | undefined {
 }
 
 app.use(bodyParser.json());
-app.use(cors({ origin: "http://localhost:5173" })); // Apply CORS to the Express app
+app.use(
+  cors({ origin: ["http://localhost:5173", "https://catanaki.pages.dev"] })
+); // Apply CORS to the Express app
 app.use(logger);
 
 app.post("/game", (req, res) => {
