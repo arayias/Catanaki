@@ -5,6 +5,8 @@
 	import { io, Socket } from 'socket.io-client';
 	import { onMount } from 'svelte';
 	import { scale } from 'svelte/transition';
+	import MaterialCostTooltip from '$components/MaterialCostTooltip.svelte';
+	import { toast } from '@zerodevx/svelte-toast';
 
 	// const base_url = 'http://localhost:3001';
 	const base_url = 'https://catanaki-production.up.railway.app';
@@ -14,6 +16,8 @@
 	let uniqueName = $state('');
 	let selectedBuilding = $state('');
 	let allowedBuildings = ['settlement', 'city', 'road'];
+	let trading = $state(false);
+
 	type Building = 'settlement' | 'city' | 'road';
 	type Material = 'Wood' | 'Brick' | 'Wheat' | 'Sheep' | 'Stone';
 	let allowedMaterials = ['Wood', 'Brick', 'Wheat', 'Sheep', 'Stone'];
@@ -26,44 +30,59 @@
 		Stone: 0
 	});
 
+	let selectedMaterials: Record<Material, number> = $state({
+		Wood: 0,
+		Brick: 0,
+		Wheat: 0,
+		Sheep: 0,
+		Stone: 0
+	});
+
+	const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+	let totalDeselected = $derived(
+		Object.values(deselectedMaterials).reduce((acc, curr) => acc + curr, 0)
+	);
+
 	const getGame = async () => {
 		const response = await axios.get(`${base_url}/game/${id}`);
 		return response.data;
 	};
+	const getPlayer = (game: any) => game?.players?.find((p: any) => p.name === uniqueName);
 
-	const handleSelectBuilding = (building: string) => () => {
+	const canAfford = (building: Building, game: any) => {
+		let cost = game.costDict[building];
+		let player = getPlayer(game);
+		for (let resource in cost) {
+			if (player.resources[resource] < cost[resource]) {
+				return false;
+			}
+		}
+		return true;
+	};
+
+	const handleSelectBuilding = (building: string, game: any) => () => {
 		if (selectedBuilding === building) {
 			selectedBuilding = '';
+			return;
+		}
+		if (game.currentGameState === 'normal' && !canAfford(capitalize(building) as Building, game)) {
 			return;
 		}
 		selectedBuilding = building;
 	};
 
-	let brickSvg = '../brick.svg';
-	let stoneSvg = '../stone.svg';
-	let wheatSvg = '../wheat.svg';
-	let woodSvg = '../wood.svg';
-	let sheepSvg = '../sheep.svg';
-
-	function getSvgFromResourceType(type: string) {
-		switch (type) {
-			case 'Stone':
-				return stoneSvg;
-			case 'Brick':
-				return brickSvg;
-			case 'Wood':
-				return woodSvg;
-			case 'Wheat':
-				return wheatSvg;
-			case 'Sheep':
-				return sheepSvg;
-			default:
-				return '';
-		}
-	}
+	let resourceToSvg = {
+		Brick: '../brick.svg',
+		Stone: '../stone.svg',
+		Wheat: '../wheat.svg',
+		Wood: '../wood.svg',
+		Sheep: '../sheep.svg'
+	};
 
 	let socket: Socket | null = $state(null);
 	let game: any = $state(new Promise(() => {}));
+	let prevState = $state({});
 
 	onMount(() => {
 		game = getGame();
@@ -87,6 +106,7 @@
 
 			socket.on('game update', (data) => {
 				console.log('game update', data);
+				prevState = game;
 				game = data;
 				game.roll = data.roll;
 				if (game.currentPlayer === uniqueName) {
@@ -117,23 +137,58 @@
 			}
 		};
 	});
+
+	let currentMaterials = $derived(getPlayer(game)?.resources);
+	let prevMaterials = $derived(getPlayer(prevState)?.resources);
+	let materialDiff = $derived.by(() => {
+		let diff = {};
+		if (!currentMaterials || !prevMaterials) {
+			return diff;
+		}
+		for (let material in currentMaterials) {
+			diff[material] = currentMaterials[material] - prevMaterials[material];
+		}
+		return diff;
+	});
+
+	$effect(() => {
+		if (!materialDiff) {
+			return;
+		}
+		for (let material in materialDiff) {
+			let diff = materialDiff[material];
+			let sign = diff > 0 ? '+' : '';
+			if (diff === 0) {
+				continue;
+			}
+			toast.push(`${sign} ${diff} ${material}`);
+		}
+	});
 </script>
 
 <div class="entry">
-	{#snippet materialCard(material: string, amount: number, increment: boolean)}
+	{#snippet materialCard(
+		material: Material,
+		amount: number,
+		increment: boolean,
+		dict: Record<Material, number>
+	)}
 		<button
 			class="flex w-[10%] flex-col items-center space-y-2 rounded-lg bg-slate-400 p-1
-    transition-transform hover:bg-blue-500 active:scale-95"
+			transition-transform hover:bg-blue-500 active:scale-95"
 			onclick={() => {
+				if (game.currentGameState !== 'discardResouces' && !trading) {
+					return;
+				}
 				if (increment) {
-					deselectedMaterials[material] = Math.min(deselectedMaterials[material] + 1, amount);
+					dict[material] = Math.min(dict[material] + 1, amount);
 				} else {
-					deselectedMaterials[material] = Math.max(deselectedMaterials[material] - 1, 0);
+					dict[material] = Math.max(dict[material] - 1, 0);
 				}
 			}}
 		>
-			<img src={getSvgFromResourceType(material)} alt={material} class="h-4 w-4" />
-			{#key deselectedMaterials[material]}
+			<img src={resourceToSvg[material]} alt={material} class="h-4 w-4" />
+			{#key dict[material]}
 				<span in:scale={{ duration: 500, start: 0.8 }} class="font-bold">
 					{amount}
 				</span>
@@ -163,7 +218,6 @@
 			<div class="flex flex-col items-center justify-center bg-slate-200 p-5">
 				<div>state: {game.currentGameState}</div>
 				<div>
-					<!-- {connectedPlayers} -->
 					{#if connected}
 						<span class="animate-pulse">🟢</span>
 					{:else}
@@ -194,22 +248,23 @@
 								{@const key = building.slice(0, 1).toUpperCase() + building.slice(1)}
 								{@const amount =
 									game.players.find((p) => p.name === uniqueName)?.buildingLimits[key] ?? 0}
-								<button
-									class="flex flex-col items-center space-x-2 rounded-lg p-1 {selectedBuilding ===
-									building
-										? amount > 0
-											? 'bg-blue-500'
-											: 'bg-yellow-500'
-										: ''}"
-									onclick={handleSelectBuilding(building)}
-								>
-									<img src={`/${building}.svg`} alt={building} class="h-4 w-4" />
-									<span class="text-sm font-bold">
-										{key}
-										{game.players.find((p) => p.name === uniqueName)?.buildingLimits[key] ?? 0}
-									</span>
-									<span> </span>
-								</button>
+								<MaterialCostTooltip {building} costDict={game.costDict} {resourceToSvg}>
+									<button
+										class="flex flex-col items-center space-x-2 rounded-lg p-1 {selectedBuilding ===
+										building
+											? amount > 0
+												? 'bg-blue-500'
+												: 'bg-yellow-500'
+											: ''}"
+										onclick={handleSelectBuilding(building, game)}
+									>
+										<img src={`/${building}.svg`} alt={building} class="h-4 w-4" />
+										<span class="text-sm font-bold">
+											{key}
+											{game.players.find((p) => p.name === uniqueName)?.buildingLimits[key] ?? 0}
+										</span>
+									</button>
+								</MaterialCostTooltip>
 							{/each}
 						</div>
 					{/if}
@@ -220,7 +275,7 @@
 						game.currentPlayer
 							? 'bg-blue-500'
 							: 'bg-slate-300'}
-						"
+							"
 						style="border-color: {player.color}"
 					>
 						{player.name} ({player.score})
@@ -235,58 +290,137 @@
 			{#if game.hasStarted}
 				{@const shouldDiscard =
 					game.waitingForDiscard && game.waitingForDiscard.hasOwnProperty(uniqueName)}
-				<div class="flex flex-row bg-slate-200">
-					<div class="flex flex-grow flex-col">
-						<div class="flex flex-row gap-5 p-3">
+				<div class="user-bar bg-slate-200">
+					{#if trading || game.currentGameState == 'discardResouces'}
+						<div class="row-start-1 flex flex-row items-center justify-center gap-5">
 							{#each allowedMaterials as material}
-								{@render materialCard(material, deselectedMaterials[material], false)}
+								{@render materialCard(
+									material as Material,
+									deselectedMaterials[material as Material],
+									false,
+									deselectedMaterials
+								)}
 							{/each}
 						</div>
-						<div class="flex flex-row gap-5 p-3">
+					{/if}
+
+					{#if trading}
+						<div class="col-start-2 row-start-1 flex flex-row items-center justify-center gap-5">
 							{#each allowedMaterials as material}
-								{@const player = game.players.find((p) => p.name === uniqueName)}
-								{@render materialCard(material, player?.resources[material], true)}
+								{@render materialCard(
+									material as Material,
+									selectedMaterials[material as Material],
+									false,
+									selectedMaterials
+								)}
 							{/each}
 						</div>
+
+						<div class="col-start-2 row-start-2 flex flex-row items-center justify-center gap-5">
+							{#each allowedMaterials as material}
+								{@render materialCard(
+									material as Material,
+									selectedMaterials[material as Material],
+									false,
+									selectedMaterials
+								)}
+							{/each}
+						</div>
+					{/if}
+
+					<div class="row-start-2 flex w-full flex-row items-center justify-center gap-5">
+						{#each allowedMaterials as material}
+							{@const player = game.players.find((p) => p.name === uniqueName)}
+							{@render materialCard(
+								material as Material,
+								player?.resources[material],
+								true,
+								deselectedMaterials
+							)}
+						{/each}
 					</div>
-					<button
-						class="rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-700"
-						onclick={() => {
-							let amountToDiscard = Object.values(deselectedMaterials).reduce(
-								(acc, curr) => acc + curr,
-								0
-							);
 
-							let expected = game.waitingForDiscard?.[uniqueName] ?? 0;
+					{#if !trading || game.currentGameState == 'discardResouces'}
+						<button
+							class="col-start-3 row-span-2 row-start-1 rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-700 {totalDeselected !==
+								(game.waitingForDiscard?.[uniqueName] ?? 0) &&
+							game.currentGameState == 'discardResouces'
+								? 'bg-gray-500'
+								: ''}"
+							onclick={() => {
+								if (game.currentGameState != 'discardResouces') {
+									trading = !trading;
+									return;
+								}
+								let expected = game.waitingForDiscard?.[uniqueName] ?? 0;
 
-							console.log('amountToDiscard', amountToDiscard);
-							console.log('expected', expected);
+								if (totalDeselected !== expected) {
+									return;
+								}
 
-							if (amountToDiscard !== expected) {
-								alert(`You need to discard ${expected} resources`);
-								return;
-							}
+								socket!.emit(
+									'game command',
+									JSON.stringify({
+										type: 'discardResources',
+										sender: uniqueName,
+										resources: deselectedMaterials
+									})
+								);
+								// clear deselected materials
+								deselectedMaterials = {
+									Wood: 0,
+									Brick: 0,
+									Wheat: 0,
+									Sheep: 0,
+									Stone: 0
+								};
+							}}
+						>
+							{game.currentGameState == 'discardResouces' && shouldDiscard
+								? `Discard ${totalDeselected} / ${game.waitingForDiscard?.[uniqueName]} `
+								: 'Trade'}
+						</button>
+					{:else if trading}
+						<button
+							class="col-start-3 row-span-1 row-start-1 rounded bg-green-500 px-4 py-2 font-bold text-white hover:bg-green-700"
+							onclick={() => {
+								// socket!.emit(
+								// 	'game command',
+								// 	JSON.stringify({
+								// 		type: 'trade',
+								// 		sender: uniqueName,
+								// 		resources: deselectedMaterials
+								// 	})
+								// );
+								// // clear deselected materials
+								deselectedMaterials = {
+									Wood: 0,
+									Brick: 0,
+									Wheat: 0,
+									Sheep: 0,
+									Stone: 0
+								};
+							}}
+						>
+							Trade
+						</button>
 
-							socket!.emit(
-								'game command',
-								JSON.stringify({
-									type: 'discardResources',
-									sender: uniqueName,
-									resources: deselectedMaterials
-								})
-							);
-							// clear deselected materials
-							deselectedMaterials = {
-								Wood: 0,
-								Brick: 0,
-								Wheat: 0,
-								Sheep: 0,
-								Stone: 0
-							};
-						}}
-					>
-						{game.currentGameState == 'discardResouces' ? 'Discard' : 'Trade'}
-					</button>
+						<button
+							class="col-start-3 row-span-1 row-start-2 rounded bg-red-500 px-4 py-2 font-bold text-white hover:bg-red-700"
+							onclick={() => {
+								trading = false;
+								deselectedMaterials = {
+									Wood: 0,
+									Brick: 0,
+									Wheat: 0,
+									Sheep: 0,
+									Stone: 0
+								};
+							}}
+						>
+							Cancel
+						</button>
+					{/if}
 				</div>
 				{#if game.currentPlayer === uniqueName}
 					{@const canEndTurn = game.currentGameState == 'normal'}
@@ -301,6 +435,7 @@
 								JSON.stringify({ type: 'rollDice', sender: uniqueName })
 							);
 							selectedBuilding = '';
+							trading = false;
 						}}
 					>
 						End Turn
@@ -316,3 +451,13 @@
 		<p>{error.message}</p>
 	{/await}
 </div>
+
+<style>
+	.user-bar {
+		display: grid;
+		grid-template-columns: 1fr 1fr auto;
+		grid-template-rows: repeat(2, 1fr);
+		gap: 1rem;
+		padding: 1rem;
+	}
+</style>
