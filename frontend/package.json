@@ -19,6 +19,7 @@
 		"@tailwindcss/typography": "^0.5.14",
 		"@types/eslint": "^9.6.0",
 		"@types/socket.io-client": "^3.0.0",
+		"@zerodevx/svelte-toast": "^0.9.6",
 		"autoprefixer": "^10.4.20",
 		"eslint": "^9.0.0",
 		"eslint-config-prettier": "^9.1.0",
